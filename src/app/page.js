@@ -1,68 +1,76 @@
-import Image from "next/image";
+// src/app/page.js
+'use client';
 
-export default function Home() {
+import { useEffect } from 'react';
+
+import { useProductStore } from '@/app/stores/useProductStore'; 
+import { useCartStore } from '@/app/stores/useCartStore';
+
+import { SearchHeader } from '@/app/components/product/SearchHeader';
+import { SearchKeywords } from '@/app/components/product/SearchKeywords';
+import { ProductCard, ProductGridSkeleton } from '@/app/components/product/ProductCard'; 
+import { Pagination } from '@/app/components/ui/Pagination'; 
+
+import { RiInboxLine } from 'react-icons/ri';
+
+/**
+ * Page Component: SearchPage (หน้าค้นหาและแคตตาล็อกสินค้าหลัก)
+ * หน้าที่: ควบคุมการโหลดข้อมูลสินค้า และจัด Layout องค์ประกอบหลักในหน้าเว็บ
+ */
+export default function SearchPage() {
+  // ดึง State และ Action หลักสำหรับสินค้าจาก Zustand useProductStore
+  const {
+    products,      // รายการสินค้าของหน้าปัจจุบันที่ดึงมาจาก API
+    loading,       // สถานะกำลังโหลดข้อมูลสินค้าหรือไม่ (true/false)
+    fetchProducts, // ฟังก์ชันเรียก API /api/products เพื่อดึงรายการสินค้า
+  } = useProductStore();
+
+  // fetchCart: ฟังก์ชันดึงข้อมูลตะกร้าสินค้าของผู้ใช้จาก Zustand useCartStore
+  const fetchCart = useCartStore((state) => state.fetchCart);
+
+  // โหลดรายการสินค้าและข้อมูลตะกร้าครั้งแรกเมื่อเปิดหน้าเว็บ
+  useEffect(() => {
+    fetchProducts();
+    fetchCart();
+  }, [fetchProducts, fetchCart]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.js
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div className="flex-1 flex flex-col bg-[#f8f9fa] text-[#2B2F38]">
+      {/* ─────────────────────────────────────────────────────────────
+          1. Header แถบค้นหาสินค้า โลโก้ และปุ่มเปิดตะกร้า
+          ───────────────────────────────────────────────────────────── */}
+      <SearchHeader />
+
+      {/* เนื้อหาหลัก */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-4">
+        {/* ─────────────────────────────────────────────────────────────
+            2. แถบแสดงแท็กคำค้นหา (Keywords Tag) และจำนวนผลลัพธ์
+            ───────────────────────────────────────────────────────────── */}
+        <SearchKeywords />
+
+        {/* ตารางสินค้า */}
+        <section>
+          {loading ? (
+            <ProductGridSkeleton count={12} />
+          ) : products.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-xl border border-dashed border-stone-300">
+              <RiInboxLine className="w-12 h-12 mx-auto mb-2 text-stone-300" />
+              <h3 className="text-base font-semibold text-[#363636]">ไม่พบข้อมูลสินค้า</h3>
+              <p className="text-xs text-stone-400 mt-1">
+                ลองค้นหาด้วยคำค้นหาอื่น หรือกดล้างคำค้นหา
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-3.5">
+              {products.map((product) => (
+                <ProductCard key={product.product_id} product={product} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* 📄 ปุ่มแบ่งหน้า Pagination */}
+        <Pagination />
       </main>
     </div>
   );
