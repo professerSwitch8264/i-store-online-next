@@ -30,7 +30,7 @@ export async function GET(request) {
     const pool = await getDbPool();
     const req = pool.request();
 
-    // 3. เขียน SQL (เพิ่ม COUNT(*) OVER() AS total_count ใน SELECT)
+    // 3. เขียน SQL 
     let query = `
       SELECT 
         p.product_id,

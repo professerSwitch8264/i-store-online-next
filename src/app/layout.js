@@ -13,7 +13,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="th">
-      <body className="min-h-screen flex flex-col bg-[#f8f9fa]">
+      <body className="min-h-[calc(100vh/1.1)] flex flex-col bg-[#f8f9fa]" style={{ zoom: 1.1 }}>
         <AuthProvider>
           <Navbar />
           {children}

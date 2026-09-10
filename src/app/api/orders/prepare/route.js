@@ -122,8 +122,10 @@ export async function POST(request) {
     const itemsReq = pool.request();
     itemsReq.input('orderId', sql.UniqueIdentifier, targetOrderId);
     const dbItemsRes = await itemsReq.query(`
-      SELECT i.item_id, i.order_id, i.product_id, i.inventory_id, i.quantity_order, i.quantity, i.price, i.quantity_sent, i.remark
+      SELECT i.item_id, i.order_id, i.product_id, i.inventory_id, i.quantity_order, i.quantity, i.price, i.quantity_sent, i.remark,
+             p.product_name
       FROM items i
+      LEFT JOIN products p ON i.product_id = p.product_id
       LEFT JOIN inventory inv ON i.inventory_id = inv.inventory_id
       WHERE i.order_id = @orderId
       ORDER BY COALESCE(inv.inventory_date, '1970-01-01') ASC, i.item_id ASC
@@ -151,6 +153,39 @@ export async function POST(request) {
         if (!itemsByProduct[pId]) itemsByProduct[pId] = [];
         itemsByProduct[pId].push(it);
       });
+
+      // หากเป็นคำสั่งซื้อแบบพรีออเดอร์ (isPreorder): ตรวจสอบจำนวนคงเหลือจริงจาก View v_inventory_preorder
+      if (isPreorder) {
+        const preCheckReq = new sql.Request(transaction);
+        const preCheckRes = await preCheckReq.query(`
+          SELECT product_id, quantity 
+          FROM v_inventory_preorder
+        `);
+        const preorderStockMap = {};
+        (preCheckRes.recordset || []).forEach((row) => {
+          preorderStockMap[String(row.product_id).toLowerCase()] = Number(row.quantity || 0);
+        });
+
+        for (const prepItem of prepared_items) {
+          const pId = String(prepItem.product_id || '').toLowerCase();
+          const isCancelled = prepItem.action === 'CANCELLED' || Number(prepItem.quantity_sent) === 0;
+          const sentQty = isCancelled ? 0 : Math.max(0, Number(prepItem.quantity_sent || 0));
+          const availableStock = preorderStockMap[pId] || 0;
+
+          if (sentQty > availableStock) {
+            const matchedLot = (itemsByProduct[pId] || [])[0];
+            const pName = matchedLot?.product_name || `รหัส ${prepItem.product_id}`;
+            await transaction.rollback();
+            return NextResponse.json(
+              {
+                success: false,
+                error: `สินค้า "${pName}" เกินจำนวนจริงในคลังพรีออเดอร์ (ในคลังมี ${availableStock} ชิ้น แต่ระบุส่ง ${sentQty} ชิ้น)`,
+              },
+              { status: 400 }
+            );
+          }
+        }
+      }
 
       let totalPreparedQuantity = 0;
 
@@ -243,159 +278,253 @@ export async function POST(request) {
           const itemSummaryRemark = prepItem.remark?.trim() || null;
 
           // 5.2 อัปเดตตาราง items
+          // สำหรับพรีออเดอร์ หากมียอดส่งมอบ (lotSentQty > 0) ให้สร้าง assignedInvId ไว้ผูกกับล๊อตพรีออเดอร์ใหม่
+          const assignedInvId = isPreorder && lotSentQty > 0 ? crypto.randomUUID() : lot.inventory_id;
+
           const upItemReq = new sql.Request(transaction);
           upItemReq.input('itemId', sql.UniqueIdentifier, lot.item_id);
           upItemReq.input('qtySent', sql.Float, lotSentQty);
           upItemReq.input('remark', sql.NVarChar, itemSummaryRemark);
+          upItemReq.input('invId', sql.UniqueIdentifier, assignedInvId);
           upItemReq.input('user', sql.NVarChar, currentUser.username);
 
           await upItemReq.query(`
             UPDATE items
             SET quantity_sent = @qtySent,
+                inventory_id = @invId,
                 remark = @remark,
                 update_by = @user,
                 update_date = GETDATE()
             WHERE item_id = @itemId
           `);
 
-          // 5.3 บันทึก Transaction สำหรับคำสั่งซื้อมาตรฐาน (!isPreorder)
-          if (!isPreorder) {
-            // ก. ทำรายการคืนสต็อกเข้าคลังปกติ (operation: 'return')
-            if (lotReturnQty > 0) {
-              const cleanInvId = lot.inventory_id || '00000000-0000-0000-0000-000000000000';
-              const txRemark = `คืนสต็อกคำสั่งซื้อ (${targetOrderNo})${returnRemark ? `: ${returnRemark}` : ''}`;
+          // 5.3 บันทึก Transaction สำหรับสินค้าพรีออเดอร์ที่จัดส่งจริง (operation: 'deposit', inventory_type: 'preorder')
+          if (isPreorder && lotSentQty > 0) {
+            const prepTxRemark = `จัดเตรียมสินค้าพรีออเดอร์ (${targetOrderNo})${itemSummaryRemark ? `: ${itemSummaryRemark}` : ''}`;
 
-              const txRetReq = new sql.Request(transaction);
-              txRetReq.input('txId', sql.UniqueIdentifier, crypto.randomUUID());
-              txRetReq.input('productId', sql.UniqueIdentifier, lot.product_id);
-              txRetReq.input('operation', sql.NVarChar, 'return');
-              txRetReq.input('quantity', sql.Float, lotReturnQty);
-              txRetReq.input('price', sql.Float, Number(lot.price || 0));
-              txRetReq.input('remark', sql.NVarChar, txRemark);
-              txRetReq.input('orderId', sql.NVarChar, targetOrderId);
-              txRetReq.input('invId', sql.UniqueIdentifier, cleanInvId);
-              txRetReq.input('user', sql.NVarChar, currentUser.username);
+            const txPreReq = new sql.Request(transaction);
+            txPreReq.input('txId', sql.UniqueIdentifier, crypto.randomUUID());
+            txPreReq.input('productId', sql.UniqueIdentifier, lot.product_id);
+            txPreReq.input('operation', sql.NVarChar, 'deposit');
+            txPreReq.input('inventoryType', sql.NVarChar, 'preorder');
+            txPreReq.input('quantity', sql.Float, lotSentQty);
+            txPreReq.input('price', sql.Float, Number(lot.price || 0));
+            txPreReq.input('remark', sql.NVarChar, prepTxRemark);
+            txPreReq.input('orderId', sql.NVarChar, targetOrderId);
+            txPreReq.input('invId', sql.UniqueIdentifier, assignedInvId);
+            txPreReq.input('user', sql.NVarChar, currentUser.username);
 
-              await txRetReq.query(`
-                INSERT INTO inventory_transaction (
-                  transaction_id,
-                  transaction_date,
-                  product_id,
-                  operation,
-                  quantity,
-                  price,
-                  sn,
-                  remark,
-                  order_id,
-                  inventory_id,
-                  update_by
-                ) VALUES (
-                  @txId,
-                  GETDATE(),
-                  @productId,
-                  @operation,
-                  @quantity,
-                  @price,
-                  NULL,
-                  @remark,
-                  @orderId,
-                  @invId,
-                  @user
-                )
+            await txPreReq.query(`
+              INSERT INTO inventory_transaction (
+                transaction_id,
+                transaction_date,
+                product_id,
+                operation,
+                inventory_type,
+                quantity,
+                price,
+                sn,
+                remark,
+                order_id,
+                inventory_id,
+                update_by
+              ) VALUES (
+                @txId,
+                GETDATE(),
+                @productId,
+                @operation,
+                @inventoryType,
+                @quantity,
+                @price,
+                NULL,
+                @remark,
+                @orderId,
+                @invId,
+                @user
+              )
+            `);
+          }
+
+          // 5.4 ทำรายการคืนสต็อกเข้าคลังปกติ (operation: 'return', inventory_type: 'normal')
+          if (lotReturnQty > 0) {
+            let returnInvId;
+
+            if (isPreorder) {
+              // สินค้าพรีออเดอร์เดิมไม่มีล๊อตในคลังปกติ -> ค้นหาล๊อตปกติของสินค้านี้เพื่อคืนเข้า
+              const normalLotReq = new sql.Request(transaction);
+              normalLotReq.input('productId', sql.UniqueIdentifier, lot.product_id);
+              const normalLotRes = await normalLotReq.query(`
+                SELECT TOP 1 inventory_id 
+                FROM inventory 
+                WHERE product_id = @productId 
+                  AND (inventory_type = 'normal' OR inventory_type IS NULL)
+                ORDER BY quantity DESC
               `);
+
+              if (normalLotRes.recordset.length > 0) {
+                returnInvId = normalLotRes.recordset[0].inventory_id;
+              } else {
+                // หากยังไม่เคยมีล๊อตปกติ ให้สร้างล๊อตปกติใหม่รองรับ
+                returnInvId = crypto.randomUUID();
+                const createLotReq = new sql.Request(transaction);
+                createLotReq.input('newInvId', sql.UniqueIdentifier, returnInvId);
+                createLotReq.input('productId', sql.UniqueIdentifier, lot.product_id);
+                createLotReq.input('price', sql.Float, Number(lot.price || 0));
+                await createLotReq.query(`
+                  INSERT INTO inventory (
+                    inventory_id, inventory_date, product_id, quantity, price, update_date, inventory_type
+                  ) VALUES (
+                    @newInvId, GETDATE(), @productId, 0, @price, GETDATE(), 'normal'
+                  )
+                `);
+              }
+            } else {
+              returnInvId = lot.inventory_id || '00000000-0000-0000-0000-000000000000';
             }
 
-            // ข. ทำรายการตัดของชำรุด (operation: 'deposit-waste') -> Trigger ลงตาราง inventory_waste
-            if (lotWasteQty > 0) {
-              const wasteTxRemark = wasteCustomRemark
-                ? `สินค้าชำรุด (${targetOrderNo}): ${wasteCustomRemark}`
-                : `สินค้าชำรุด (${targetOrderNo})`;
+            const txRemark = isPreorder
+              ? `คืนสต็อกสินค้าพรีออเดอร์เข้าคลังปกติ (${targetOrderNo})${returnRemark ? `: ${returnRemark}` : ''}`
+              : `คืนสต็อกคำสั่งซื้อ (${targetOrderNo})${returnRemark ? `: ${returnRemark}` : ''}`;
 
-              const txWstReq = new sql.Request(transaction);
-              txWstReq.input('txId', sql.UniqueIdentifier, crypto.randomUUID());
-              txWstReq.input('productId', sql.UniqueIdentifier, lot.product_id);
-              txWstReq.input('operation', sql.NVarChar, 'deposit-waste');
-              txWstReq.input('quantity', sql.Float, lotWasteQty);
-              txWstReq.input('price', sql.Float, Number(lot.price || 0));
-              txWstReq.input('remark', sql.NVarChar, wasteTxRemark);
-              txWstReq.input('orderId', sql.NVarChar, targetOrderId);
-              txWstReq.input('invId', sql.UniqueIdentifier, crypto.randomUUID());
-              txWstReq.input('user', sql.NVarChar, currentUser.username);
+            const txRetReq = new sql.Request(transaction);
+            txRetReq.input('txId', sql.UniqueIdentifier, crypto.randomUUID());
+            txRetReq.input('productId', sql.UniqueIdentifier, lot.product_id);
+            txRetReq.input('operation', sql.NVarChar, 'return');
+            txRetReq.input('inventoryType', sql.NVarChar, 'normal');
+            txRetReq.input('quantity', sql.Float, lotReturnQty);
+            txRetReq.input('price', sql.Float, Number(lot.price || 0));
+            txRetReq.input('remark', sql.NVarChar, txRemark);
+            txRetReq.input('orderId', sql.NVarChar, targetOrderId);
+            txRetReq.input('invId', sql.UniqueIdentifier, returnInvId);
+            txRetReq.input('user', sql.NVarChar, currentUser.username);
 
-              await txWstReq.query(`
-                INSERT INTO inventory_transaction (
-                  transaction_id,
-                  transaction_date,
-                  product_id,
-                  operation,
-                  quantity,
-                  price,
-                  sn,
-                  remark,
-                  order_id,
-                  inventory_id,
-                  update_by
-                ) VALUES (
-                  @txId,
-                  GETDATE(),
-                  @productId,
-                  @operation,
-                  @quantity,
-                  @price,
-                  NULL,
-                  @remark,
-                  @orderId,
-                  @invId,
-                  @user
-                )
-              `);
-            }
+            await txRetReq.query(`
+              INSERT INTO inventory_transaction (
+                transaction_id,
+                transaction_date,
+                product_id,
+                operation,
+                inventory_type,
+                quantity,
+                price,
+                sn,
+                remark,
+                order_id,
+                inventory_id,
+                update_by
+              ) VALUES (
+                @txId,
+                GETDATE(),
+                @productId,
+                @operation,
+                @inventoryType,
+                @quantity,
+                @price,
+                NULL,
+                @remark,
+                @orderId,
+                @invId,
+                @user
+              )
+            `);
+          }
 
-            // ค. ทำรายการตัดของสูญหาย (operation: 'deposit-lost') -> Trigger ลงตาราง inventory_lost
-            if (lotLostQty > 0) {
-              const lostTxRemark = lostCustomRemark
-                ? `สินค้าสูญหาย (${targetOrderNo}): ${lostCustomRemark}`
-                : `สินค้าสูญหาย (${targetOrderNo})`;
+          // 5.5 ทำรายการตัดของชำรุดเข้าคลังปกติ (operation: 'deposit-waste', inventory_type: 'normal') -> Trigger ลงตาราง inventory_waste
+          if (lotWasteQty > 0) {
+            const wasteTxRemark = wasteCustomRemark
+              ? `สินค้าชำรุด (${targetOrderNo}): ${wasteCustomRemark}`
+              : `สินค้าชำรุด (${targetOrderNo})`;
 
-              const txLostReq = new sql.Request(transaction);
-              txLostReq.input('txId', sql.UniqueIdentifier, crypto.randomUUID());
-              txLostReq.input('productId', sql.UniqueIdentifier, lot.product_id);
-              txLostReq.input('operation', sql.NVarChar, 'deposit-lost');
-              txLostReq.input('quantity', sql.Float, lotLostQty);
-              txLostReq.input('price', sql.Float, Number(lot.price || 0));
-              txLostReq.input('remark', sql.NVarChar, lostTxRemark);
-              txLostReq.input('orderId', sql.NVarChar, targetOrderId);
-              txLostReq.input('invId', sql.UniqueIdentifier, crypto.randomUUID());
-              txLostReq.input('user', sql.NVarChar, currentUser.username);
+            const txWstReq = new sql.Request(transaction);
+            txWstReq.input('txId', sql.UniqueIdentifier, crypto.randomUUID());
+            txWstReq.input('productId', sql.UniqueIdentifier, lot.product_id);
+            txWstReq.input('operation', sql.NVarChar, 'deposit-waste');
+            txWstReq.input('inventoryType', sql.NVarChar, 'normal');
+            txWstReq.input('quantity', sql.Float, lotWasteQty);
+            txWstReq.input('price', sql.Float, Number(lot.price || 0));
+            txWstReq.input('remark', sql.NVarChar, wasteTxRemark);
+            txWstReq.input('orderId', sql.NVarChar, targetOrderId);
+            txWstReq.input('invId', sql.UniqueIdentifier, crypto.randomUUID());
+            txWstReq.input('user', sql.NVarChar, currentUser.username);
 
-              await txLostReq.query(`
-                INSERT INTO inventory_transaction (
-                  transaction_id,
-                  transaction_date,
-                  product_id,
-                  operation,
-                  quantity,
-                  price,
-                  sn,
-                  remark,
-                  order_id,
-                  inventory_id,
-                  update_by
-                ) VALUES (
-                  @txId,
-                  GETDATE(),
-                  @productId,
-                  @operation,
-                  @quantity,
-                  @price,
-                  NULL,
-                  @remark,
-                  @orderId,
-                  @invId,
-                  @user
-                )
-              `);
-            }
+            await txWstReq.query(`
+              INSERT INTO inventory_transaction (
+                transaction_id,
+                transaction_date,
+                product_id,
+                operation,
+                inventory_type,
+                quantity,
+                price,
+                sn,
+                remark,
+                order_id,
+                inventory_id,
+                update_by
+              ) VALUES (
+                @txId,
+                GETDATE(),
+                @productId,
+                @operation,
+                @inventoryType,
+                @quantity,
+                @price,
+                NULL,
+                @remark,
+                @orderId,
+                @invId,
+                @user
+              )
+            `);
+          }
+
+          // 5.6 ทำรายการตัดของสูญหายเข้าคลังปกติ (operation: 'deposit-lost', inventory_type: 'normal') -> Trigger ลงตาราง inventory_lost
+          if (lotLostQty > 0) {
+            const lostTxRemark = lostCustomRemark
+              ? `สินค้าสูญหาย (${targetOrderNo}): ${lostCustomRemark}`
+              : `สินค้าสูญหาย (${targetOrderNo})`;
+
+            const txLostReq = new sql.Request(transaction);
+            txLostReq.input('txId', sql.UniqueIdentifier, crypto.randomUUID());
+            txLostReq.input('productId', sql.UniqueIdentifier, lot.product_id);
+            txLostReq.input('operation', sql.NVarChar, 'deposit-lost');
+            txLostReq.input('inventoryType', sql.NVarChar, 'normal');
+            txLostReq.input('quantity', sql.Float, lotLostQty);
+            txLostReq.input('price', sql.Float, Number(lot.price || 0));
+            txLostReq.input('remark', sql.NVarChar, lostTxRemark);
+            txLostReq.input('orderId', sql.NVarChar, targetOrderId);
+            txLostReq.input('invId', sql.UniqueIdentifier, crypto.randomUUID());
+            txLostReq.input('user', sql.NVarChar, currentUser.username);
+
+            await txLostReq.query(`
+              INSERT INTO inventory_transaction (
+                transaction_id,
+                transaction_date,
+                product_id,
+                operation,
+                inventory_type,
+                quantity,
+                price,
+                sn,
+                remark,
+                order_id,
+                inventory_id,
+                update_by
+              ) VALUES (
+                @txId,
+                GETDATE(),
+                @productId,
+                @operation,
+                @inventoryType,
+                @quantity,
+                @price,
+                NULL,
+                @remark,
+                @orderId,
+                @invId,
+                @user
+              )
+            `);
           }
         }
       }

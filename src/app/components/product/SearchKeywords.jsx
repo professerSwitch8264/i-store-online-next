@@ -26,10 +26,10 @@ export function SearchKeywords() {
   const total = pagination?.total ?? products.length;
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-stone-200 select-none">
+    <div className="flex items-center justify-between gap-2 pb-2 border-b border-stone-200 select-none">
       {/* 1. ฝั่งซ้าย: หัวข้อ และรายการแท็กคำค้นหา (Keyword Badges) */}
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-sm font-bold text-[#2B2F38] shrink-0">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <h2 className="text-xs sm:text-sm font-bold text-[#2B2F38] shrink-0">
           {keywords.length > 0 ? 'สินค้าที่ค้นพบ' : 'รายการสินค้าทั้งหมด'}
         </h2>
 
@@ -66,7 +66,7 @@ export function SearchKeywords() {
       </div>
 
       {/* 2. ฝั่งขวา: จำนวนสินค้าที่ค้นพบ */}
-      <div className="text-xs sm:text-sm font-medium text-stone-500 shrink-0">
+      <div className="text-[11px] sm:text-xs font-medium text-stone-500 shrink-0">
         {loading ? (
           <span className="inline-block w-20 h-4 bg-stone-200 rounded animate-pulse" />
         ) : (

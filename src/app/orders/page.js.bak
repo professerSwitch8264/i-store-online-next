@@ -507,8 +507,7 @@ export default function OrdersPage() {
                 </div>
               ) : (
                 <div
-                  style={{ maxHeight: 'calc((100vh / 1.1) - 310px)' }}
-                  className="overflow-x-auto overflow-y-auto"
+                  className="overflow-x-auto overflow-y-auto max-h-[calc(100dvh-415px)] sm:max-h-[calc(100dvh-365px)]"
                 >
                   <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[760px]">
                     <thead className="bg-white border-b border-stone-200 text-xs font-normal text-[#363636]/80 select-none sticky top-0 z-10 shadow-2xs">

@@ -41,16 +41,17 @@ export function ProductCard({ product }) {
 
   // ซิงค์ค่าตัวเลขเริ่มต้นให้ตรงกับ batchSize ทันทีเมื่อข้อมูลสินค้าถูกโหลดเข้ามา
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setQuantity(batchSize);
   }, [batchSize]);
 
   // imageUrl: ดึง URL รูปภาพเต็มของสินค้าจากเซิร์ฟเวอร์
   const imageUrl = getThumbnailUrl(product.product_thumbnail);
 
-  // stock: จำนวนสต็อกคงเหลือจริงในคลังสินค้า (ดึงมาจาก view: v_inventory)
+  // จำนวนสต็อกคงเหลือจริงในคลังสินค้า (ดึงมาจาก v_inventory)
   const stock = product.stock_quantity ?? 0;
 
-  // isAvailable: ตรวจว่าสต็อกมีพอสำหรับการสั่งซื้อขั้นต่ำ 1 ชุดหรือไม่ (stock >= batchSize)
+  // เอาไว้เช็คว่ากดเพิ่มสินค้าได้ไหม
   const isAvailable = stock >= batchSize;
 
   // คำนวณเพดานสูงสุดในการสั่งซื้อ (อิงตาม Order Limit และตัดเศษให้ลงตัวกับ Batch Size)
@@ -78,7 +79,7 @@ export function ProductCard({ product }) {
     if (type === 'max') {
       if (isAvailable) {
         if (hasOrderLimit && quantity >= orderLimit) {
-          showError(`สินค้าจำกัดการซื้อไม่เกิน ${product.order_limit} ${product.unit_name || 'ชิ้น'} ต่อครั้ง`);
+          showError(`สินค้าจำกัดการซื้อไม่เกิน ${product.order_limit} ${product.unit_name || 'ชิ้น'} ต่อรายการ`);
         } else if (quantity >= stock) {
           showError(`สินค้าคงเหลือในคลังไม่เพียงพอ (คงเหลือ ${stock} ${product.unit_name || 'ชิ้น'})`);
         }
@@ -99,7 +100,7 @@ export function ProductCard({ product }) {
     // ตรวจสอบว่าในตะกร้ามีสินค้านี้ครบเพดานสูงสุด หรือยอดที่จะเพิ่มใหม่เกินขีดจำกัดหรือไม่
     // ตาม Easy Store: แสดง Toast "สินค้าในตะกร้ามีครบจำนวนจำกัดสูงสุดแล้ว" และ return ทันที ไม่ยิง API ไป Server
     if (currentInCart >= maxLimit || currentInCart + quantity > maxLimit) {
-      showError('สินค้าในตะกร้ามีครบจำนวนจำกัดสูงสุดแล้ว');
+      showError(`สินค้าจำกัดการซื้อไม่เกิน ${product.order_limit} ${product.unit_name || 'ชิ้น'} ต่อรายการ`);
       return;
     }
 
@@ -122,9 +123,9 @@ export function ProductCard({ product }) {
       // ส่งคำสั่งสั่งจองล่วงหน้า (reserve_flag = 'Y')
       await addItem(product.product_id, customQty, 'Y');
       // แสดง Toast แจ้งเตือนความสำเร็จสีดำทึบ Minimalist กลางจอ 1.5 วินาที
-      showSuccess('เพิ่มรายการสั่งจองลงในตะกร้าเรียบร้อยแล้ว');
+      showSuccess('เพิ่มรายการสั่งล่วงหน้าในตะกร้าเรียบร้อยแล้ว');
     } catch (err) {
-      showError(err.message || 'เกิดข้อผิดพลาดในการสั่งจองสินค้าล่วงหน้า');
+      showError(err.message || 'เกิดข้อผิดพลาดในการสั่งล่วงหน้า');
       throw err;
     }
   };
@@ -135,15 +136,15 @@ export function ProductCard({ product }) {
         {/* ─────────────────────────────────────────────────────────────
             1. พื้นที่รูปภาพสินค้า
             ───────────────────────────────────────────────────────────── */}
-        <div className="relative w-full h-32 bg-white flex items-center justify-center overflow-hidden border-b border-stone-100">
+        <div className="relative w-full h-22 sm:h-24 bg-white flex items-center justify-center overflow-hidden border-b border-stone-100">
           {/* แสตมป์ Sold Out (แสดงเมื่อสต็อกไม่พอสั่งซื้อขั้นต่ำ) */}
           {!isAvailable && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none p-3 bg-white/40">
+            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none p-2 bg-white/40">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/soldout.png"
                 alt="Sold Out"
-                className="w-20 h-auto object-contain select-none opacity-90 drop-shadow-md"
+                className="w-16 h-auto object-contain select-none opacity-90 drop-shadow-md"
               />
             </div>
           )}
@@ -153,7 +154,7 @@ export function ProductCard({ product }) {
             <img
               src={imageUrl}
               alt={product.product_name}
-              className={`w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300 ${
+              className={`w-full h-full object-contain p-1.5 group-hover:scale-105 transition-transform duration-300 ${
                 !isAvailable ? 'opacity-40 grayscale' : ''
               }`}
               onError={() => setImgError(true)}
@@ -161,8 +162,8 @@ export function ProductCard({ product }) {
             />
           ) : (
             <div className="text-stone-300 flex flex-col items-center justify-center w-full h-full">
-              <RiImageLine className="w-8 h-8 text-stone-300" />
-              <span className="text-[10px] mt-1 text-stone-400 font-medium">ไม่มีรูปภาพ</span>
+              <RiImageLine className="w-7 h-7 text-stone-300" />
+              <span className="text-[9px] mt-0.5 text-stone-400 font-medium">ไม่มีรูปภาพ</span>
             </div>
           )}
         </div>
@@ -170,30 +171,30 @@ export function ProductCard({ product }) {
         {/* ─────────────────────────────────────────────────────────────
             2. ข้อมูลรายละเอียดสินค้า (ชื่อ, หมวดหมู่, ร้านค้า, ราคา)
             ───────────────────────────────────────────────────────────── */}
-        <div className="p-2 sm:p-3 flex-1 flex flex-col justify-between">
+        <div className="p-1.5 sm:p-2 flex-1 flex flex-col justify-between">
           <div>
             {/* หมวดหมู่สินค้า */}
-            <div className="mb-1">
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-stone-100 text-stone-600 border border-stone-200/80 truncate">
+            <div className="mb-0.5">
+              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-stone-100 text-stone-600 border border-stone-200/80 truncate">
                 {product.category_name || 'ทั่วไป'}
               </span>
             </div>
 
             {/* ชื่อสินค้า */}
             <h3
-              className="text-xs font-semibold text-[#2B2F38] line-clamp-2 leading-snug group-hover:text-[#EB6E3E] transition-colors"
+              className="text-xs font-semibold text-[#2B2F38] line-clamp-2 leading-tight group-hover:text-[#EB6E3E] transition-colors"
               title={product.product_name}
             >
               {product.product_name}
             </h3>
 
-            {/* ชื่อร้านค้า (พร้อมไอคอน FaShop หรือ FaShopLock) */}
+            {/* ชื่อร้านค้า */}
             {product.store_name && (
-              <p className="text-[10px] text-stone-400 mt-1 flex items-center gap-1 truncate">
+              <p className="text-[10px] text-stone-400 mt-0.5 flex items-center gap-1 truncate">
                 {product.store_access === 'private' ? (
-                  <FaShopLock className="w-3 h-3 text-stone-400 shrink-0" />
+                  <FaShopLock className="w-2.5 h-2.5 text-stone-400 shrink-0" />
                 ) : (
-                  <FaShop className="w-3 h-3 text-stone-400 shrink-0" />
+                  <FaShop className="w-2.5 h-2.5 text-stone-400 shrink-0" />
                 )}
                 <span className="truncate">{product.store_name}</span>
               </p>
@@ -201,15 +202,15 @@ export function ProductCard({ product }) {
           </div>
 
           {/* ราคา & คงเหลือ */}
-          <div className="flex items-baseline justify-between gap-1 pt-1.5 mt-1.5 border-t border-stone-100">
+          <div className="flex items-baseline justify-between gap-1 pt-1 mt-1 border-t border-stone-100">
             <div className="flex items-baseline gap-0.5">
-              <span className="text-sm sm:text-base font-black text-[#2B2F38]">
+              <span className="text-xs sm:text-sm font-black text-[#2B2F38]">
                 ฿{formatPrice(product.product_price)}
               </span>
-              <span className="text-[10px] text-stone-400">/{product.unit_name || 'ชิ้น'}</span>
+              <span className="text-[9px] text-stone-400">/{product.unit_name || 'ชิ้น'}</span>
             </div>
 
-            <div className="text-[10px] text-stone-500">
+            <div className="text-[9px] text-stone-500">
               คงเหลือ{' '}
               <span className={`font-bold ${isAvailable ? 'text-[#2B2F38]' : 'text-stone-400'}`}>
                 {stock}
@@ -221,14 +222,14 @@ export function ProductCard({ product }) {
           {/* ─────────────────────────────────────────────────────────────
               3. แถบปุ่มควบคุม: Stepper + ปุ่มพรีออเดอร์ (🔖) + ปุ่มใส่ตะกร้า (🛒)
               ───────────────────────────────────────────────────────────── */}
-          <div className="pt-2 border-t border-stone-100">
+          <div className="pt-1.5 border-t border-stone-100">
             <div className="flex items-center justify-between gap-1">
               {/* ตัวปรับจำนวน QuantityStepper (เปิดใช้งานตลอดที่สินค้ามีสต็อก ไม่ disable ตามของในตะกร้า ตามแบบฉบับ Easy Store) */}
               <QuantityStepper
                 value={quantity}
                 step={batchSize}
                 min={batchSize}
-                max={isAvailable ? maxLimit : 999999}
+                max={isAvailable ? maxLimit : 9999}
                 loading={isAdding}
                 disabled={!isAvailable}
                 onLimitReached={handleLimitReached}
@@ -241,10 +242,10 @@ export function ProductCard({ product }) {
                   type="button"
                   onClick={() => setPreorderOpen(true)}
                   disabled={isAdding}
-                  className="w-6.5 h-6.5 sm:w-7.5 sm:h-7.5 rounded-lg border border-stone-300 bg-white hover:bg-stone-50 hover:border-[#EB6E3E] hover:text-[#EB6E3E] text-[#2B2F38] flex items-center justify-center transition-all shadow-2xs active:scale-95 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg border border-stone-300 bg-white hover:bg-stone-50 hover:border-[#EB6E3E] hover:text-[#EB6E3E] text-[#2B2F38] flex items-center justify-center transition-all shadow-2xs active:scale-95 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   title="สั่งจองสินค้าล่วงหน้า (Pre-order)"
                 >
-                  <RiBookmarkLine className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <RiBookmarkLine className="w-3.5 h-3.5" />
                 </button>
 
                 {/* ปุ่มใส่ตะกร้าปกติ (🛒) - ไม่ disable ตามตะกร้า แต่จะแจ้งเตือน Toast เมื่อกด ตามแบบฉบับ Easy Store */}
@@ -252,7 +253,7 @@ export function ProductCard({ product }) {
                   type="button"
                   onClick={handleAddToCart}
                   disabled={!isAvailable || isAdding}
-                  className={`w-6.5 h-6.5 sm:w-7.5 sm:h-7.5 rounded-lg flex items-center justify-center transition-all shadow-2xs active:scale-95 shrink-0 ${
+                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg flex items-center justify-center transition-all shadow-2xs active:scale-95 shrink-0 ${
                     isAvailable && !isAdding
                       ? 'bg-[#2B2F38] hover:bg-[#1E2229] hover:ring-2 hover:ring-[#EB6E3E]/40 text-white cursor-pointer'
                       : 'bg-stone-200 text-stone-400 cursor-not-allowed'
@@ -332,48 +333,48 @@ export function ProductGridSkeleton({ count = 12 }) {
           key={i}
           className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-2xs flex flex-col justify-between animate-pulse select-none"
         >
-          {/* 1. พื้นที่รูปภาพสินค้า Skeleton (ความสูง h-32 เท่ากับ ProductCard จริง) */}
-          <div className="w-full h-32 bg-stone-100/80 border-b border-stone-100 flex items-center justify-center">
-            <RiImageLine className="w-8 h-8 text-stone-200" />
+          {/* 1. พื้นที่รูปภาพสินค้า Skeleton (ความสูง h-22 sm:h-24 เท่ากับ ProductCard จริง) */}
+          <div className="w-full h-22 sm:h-24 bg-stone-100/80 border-b border-stone-100 flex items-center justify-center">
+            <RiImageLine className="w-7 h-7 text-stone-200" />
           </div>
 
           {/* 2. ข้อมูลรายละเอียดสินค้า Skeleton (padding และ layout เท่ากับการ์ดจริง) */}
-          <div className="p-2 sm:p-3 flex-1 flex flex-col justify-between">
+          <div className="p-1.5 sm:p-2 flex-1 flex flex-col justify-between">
             <div>
               {/* หมวดหมู่สินค้า Skeleton badge */}
-              <div className="mb-1">
-                <div className="h-4 w-16 bg-stone-100 rounded" />
+              <div className="mb-0.5">
+                <div className="h-3.5 w-14 bg-stone-100 rounded" />
               </div>
 
               {/* ชื่อสินค้า 2 บรรทัด Skeleton */}
-              <div className="space-y-1 mb-1.5">
+              <div className="space-y-1 mb-1">
                 <div className="h-3 bg-stone-200 rounded w-5/6" />
                 <div className="h-3 bg-stone-100 rounded w-3/5" />
               </div>
 
               {/* ชื่อร้านค้า Skeleton */}
-              <div className="flex items-center gap-1 mt-1">
-                <div className="w-3 h-3 rounded bg-stone-200/70 shrink-0" />
-                <div className="h-2.5 bg-stone-100 rounded w-14" />
+              <div className="flex items-center gap-1 mt-0.5">
+                <div className="w-2.5 h-2.5 rounded bg-stone-200/70 shrink-0" />
+                <div className="h-2 bg-stone-100 rounded w-12" />
               </div>
             </div>
 
             {/* ราคา & คงเหลือ Skeleton */}
-            <div className="flex items-baseline justify-between gap-1 pt-1.5 mt-1.5 border-t border-stone-100">
-              <div className="h-4 bg-stone-200 rounded w-14" />
-              <div className="h-3 bg-stone-100 rounded w-12" />
+            <div className="flex items-baseline justify-between gap-1 pt-1 mt-1 border-t border-stone-100">
+              <div className="h-3.5 bg-stone-200 rounded w-12" />
+              <div className="h-2.5 bg-stone-100 rounded w-10" />
             </div>
 
             {/* 3. แถบปุ่มควบคุม Stepper + ปุ่มพรีออเดอร์ + ปุ่มใส่ตะกร้า Skeleton */}
-            <div className="pt-2 border-t border-stone-100">
+            <div className="pt-1.5 border-t border-stone-100">
               <div className="flex items-center justify-between gap-1">
                 {/* Stepper Skeleton */}
-                <div className="h-6.5 sm:h-7.5 w-16 sm:w-20 bg-stone-100 rounded-lg border border-stone-200/60" />
+                <div className="h-6 sm:h-7 w-14 sm:w-18 bg-stone-100 rounded-md sm:rounded-lg border border-stone-200/60" />
 
                 {/* ปุ่มพรีออเดอร์ + ปุ่มใส่ตะกร้า Skeleton */}
                 <div className="flex items-center gap-1 shrink-0">
-                  <div className="w-6.5 h-6.5 sm:w-7.5 sm:h-7.5 rounded-lg bg-stone-100 border border-stone-200/60" />
-                  <div className="w-6.5 h-6.5 sm:w-7.5 sm:h-7.5 rounded-lg bg-stone-200/80" />
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-stone-100 border border-stone-200/60" />
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-stone-200/80" />
                 </div>
               </div>
             </div>

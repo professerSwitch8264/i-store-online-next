@@ -417,7 +417,7 @@ export default function StorePreparationPage() {
           </div>
         ) : (
           <div
-            style={{ maxHeight: 'calc((100vh / 1.1) - 260px)' }}
+            style={{ maxHeight: 'calc(100dvh - 300px)' }}
             className="overflow-x-auto overflow-y-auto"
           >
             <table className="w-full text-left text-xs sm:text-sm border-collapse">

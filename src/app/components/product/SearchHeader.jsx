@@ -30,24 +30,24 @@ export function SearchHeader() {
 
   return (
     <header className="w-full bg-white border-b border-stone-200 sticky top-8 z-40 shadow-xs select-none">
-      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2 sm:py-3.5">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-3">
         {/* จัดวาง โลโก้ + ช่องค้นหา + ตะกร้าสินค้า ในแถวเดียวกันแบบ Responsive เต็มรูปแบบ */}
         <div className="flex items-center justify-between gap-1.5 sm:gap-6">
           {/* 1. โลโก้ i-Store ด้านซ้าย */}
           <div className="flex items-center shrink-0 cursor-pointer">
             <Image
-              src="/iStore.png"
+              src="/iStoreHome.png"
               alt="i-Store Logo"
               width={200}
               height={65}
-              className="h-12 sm:h-16 w-auto object-contain"
+              className="h-10 sm:h-12 w-auto object-contain"
               priority
             />
           </div>
 
           {/* 2. กล่องค้นหาสินค้า (ตรงกลาง): เปลี่ยนเป็นเส้นขอบสี stone-300 */}
           <div className="flex-1 min-w-0 max-w-2xl flex justify-center">
-            <div className="w-full h-9 sm:h-10 flex items-center bg-white rounded-md border border-stone-300 overflow-hidden transition-all focus-within:border-stone-400 focus-within:ring-2 focus-within:ring-[#EB6E3E]/30 shadow-2xs">
+            <div className="w-full h-8.5 sm:h-9 flex items-center bg-white rounded-md border border-stone-300 overflow-hidden transition-all focus-within:border-stone-400 focus-within:ring-2 focus-within:ring-[#EB6E3E]/30 shadow-2xs">
               <input
                 type="text"
                 placeholder="ค้นหาชื่อสินค้า หรือรายละเอียดสินค้า..."

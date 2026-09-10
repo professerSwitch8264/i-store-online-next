@@ -384,11 +384,13 @@ export async function GET(request) {
             vo.quantity_sent,
             vo.item_remark,
             ISNULL(inv.quantity, 0) AS stock_quantity,
+            ISNULL(pre_inv.quantity, 0) AS preorder_stock_quantity,
             p.order_limit,
             p.batch_size,
             loc.location_name AS location_name
           FROM v_orders vo
           LEFT JOIN v_inventory inv ON vo.product_id = inv.product_id
+          LEFT JOIN v_inventory_preorder pre_inv ON vo.product_id = pre_inv.product_id
           LEFT JOIN products p ON vo.product_id = p.product_id
           LEFT JOIN locations loc ON p.location_id = loc.location_id
           WHERE vo.order_id IN (${orderIdParams.join(', ')})
@@ -641,7 +643,10 @@ export async function GET(request) {
             location_name: locName,
             item_total: itemTotal,
             original_item_total: originalItemTotal,
-            stock_quantity: Number(item.stock_quantity ?? 0),
+            stock_quantity: order.reserve_flag === 'Y'
+              ? Number(item.preorder_stock_quantity ?? 0)
+              : Number(item.stock_quantity ?? 0),
+            preorder_stock_quantity: Number(item.preorder_stock_quantity ?? 0),
             order_limit: item.order_limit != null ? Number(item.order_limit) : null,
             batch_size: Number(item.batch_size ?? 1),
           });

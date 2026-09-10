@@ -44,14 +44,14 @@ export function Pagination() {
   };
 
   return (
-    <div className="flex items-center justify-center gap-1 sm:gap-1.5 pt-4 pb-6 select-none">
+    <div className="flex items-center justify-center gap-1 sm:gap-1.5 pt-2 sm:pt-2.5 pb-3 sm:pb-4 select-none">
       {/* ปุ่ม << ไปหน้าแรกสุด */}
       {totalPages > 3 && (
         <button
           type="button"
           onClick={() => setPage(1)}
           disabled={page <= 1 || loading}
-          className="w-8 h-8 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 disabled:opacity-25 transition-all cursor-pointer"
+          className="w-7 h-7 sm:w-7.5 sm:h-7.5 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 disabled:opacity-25 transition-all cursor-pointer rounded-xs"
           title="หน้าแรกสุด"
         >
           «
@@ -63,7 +63,7 @@ export function Pagination() {
         type="button"
         onClick={() => setPage(page - 1)}
         disabled={page <= 1 || loading}
-        className="w-8 h-8 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 disabled:opacity-25 transition-all cursor-pointer"
+        className="w-7 h-7 sm:w-7.5 sm:h-7.5 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 disabled:opacity-25 transition-all cursor-pointer rounded-xs"
         title="หน้าก่อนหน้า"
       >
         ‹
@@ -73,7 +73,7 @@ export function Pagination() {
       {getPageNumbers().map((item, idx) => {
         if (item === '...') {
           return (
-            <span key={`dots-${idx}`} className="w-8 h-8 flex items-center justify-center text-stone-400 text-xs font-bold">
+            <span key={`dots-${idx}`} className="w-7 h-7 sm:w-7.5 sm:h-7.5 flex items-center justify-center text-stone-400 text-xs font-bold">
               ...
             </span>
           );
@@ -86,7 +86,7 @@ export function Pagination() {
             type="button"
             onClick={() => setPage(Number(item))}
             disabled={loading}
-            className={`min-w-[32px] h-8 px-2 flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
+            className={`min-w-[28px] sm:min-w-[30px] h-7 sm:h-7.5 px-1.5 flex items-center justify-center text-xs font-medium transition-all cursor-pointer rounded-xs ${
               isCurrent
                 ? 'bg-[#EB6E3E] text-white border border-[#d95d2f] font-bold shadow-xs'
                 : 'border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50'
@@ -102,7 +102,7 @@ export function Pagination() {
         type="button"
         onClick={() => setPage(page + 1)}
         disabled={page >= totalPages || loading}
-        className="w-8 h-8 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 disabled:opacity-25 transition-all cursor-pointer"
+        className="w-7 h-7 sm:w-7.5 sm:h-7.5 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 disabled:opacity-25 transition-all cursor-pointer rounded-xs"
         title="หน้าถัดไป"
       >
         ›
@@ -114,7 +114,7 @@ export function Pagination() {
           type="button"
           onClick={() => setPage(totalPages)}
           disabled={page >= totalPages || loading}
-          className="w-8 h-8 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 disabled:opacity-25 transition-all cursor-pointer"
+          className="w-7 h-7 sm:w-7.5 sm:h-7.5 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 disabled:opacity-25 transition-all cursor-pointer rounded-xs"
           title="หน้าสุดท้าย"
         >
           »
