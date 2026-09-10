@@ -46,14 +46,14 @@ export async function POST(request) {
 
     if (!store_id) {
       return NextResponse.json(
-        { success: false, error: 'กรุณาระบุรหัสร้านค้า (store_id)' },
+        { success: false, error: 'กรุณาระบุรหัสร้านค้า' },
         { status: 400 }
       );
     }
 
     if (products.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'กรุณาระบุรายการสินค้าที่ต้องการสั่งซื้อ' },
+        { success: false, error: 'กรุณาระบุรายการสินค้า' },
         { status: 400 }
       );
     }
@@ -66,6 +66,14 @@ export async function POST(request) {
 
     // 1. ตรวจสอบข้อมูลสินค้าและคำนวณการตัดสต็อกแบบ FIFO
     for (const item of products) {
+      // 🛡️ ป้องกันกรณีสินค้ามีจำนวน 0 หรือติดลบ
+      const qty = Number(item.quantity);
+      if (isNaN(qty) || qty <= 0) {
+        return NextResponse.json(
+          { success: false, error: 'จำนวนสินค้าต้องมากกว่า 0 ชิ้น' },
+          { status: 400 }
+        );
+      }
       // productReq: ตรวจสอบว่าสินค้ามีอยู่จริงและดึงชื่อกับราคา
       const productReq = await pool
         .request()
@@ -81,11 +89,15 @@ export async function POST(request) {
 
       const productInfo = productReq.recordset[0];
 
-      // กรณีสั่งซื้อปกติ (ไม่ใช่การสั่งจองล่วงหน้า) -> ต้องตัดสต็อกจริงตาม FIFO
+      // ถ้า reserve_flag ไม่เท่ากับ 'Y' แปลว่าเป็นการสั่งซื้อสินค้าปกติที่ต้องตัดของออกจากคลังทันที
       if (reserve_flag !== 'Y') {
         const lotReq = await pool
+          // เรียกใช้งาน object request จาก pool
           .request()
+          // กำหนด Parameter ป้องกัน SQL Injection โดยระบุชื่อตัวแปร @pid, กำหนด Data Type เป็น UniqueIdentifier (UUID), และส่งค่า item.product_id เข้าไป
           .input('pid', sql.UniqueIdentifier, item.product_id)
+          // สั่งรันคำสั่ง Query เพื่อดึงรายการ Lot สินค้าที่ยังมีของอยู่ (quantity > 0)
+          // เรียงลำดับตามวันที่นำเข้าจากเก่าไปใหม่สุด (ORDER BY inventory_date ASC) เพื่อเข้าสูตร FIFO (เข้าก่อน-ออกก่อน)
           .query(`
             SELECT inventory_id, inventory_date, quantity, price 
             FROM inventory 
@@ -93,15 +105,25 @@ export async function POST(request) {
             ORDER BY inventory_date ASC
           `);
 
+        // ดึงรายการแถวข้อมูล Lot ทั้งหมดที่ค้นพบจากฐานข้อมูล ออกมาเก็บไว้ในตัวแปร availableLots
         const availableLots = lotReq.recordset;
+        
+        // แปลงจำนวนสินค้าที่ลูกค้าต้องการสั่งซื้อให้เป็นตัวเลข (Number) แล้วกำหนดเป็นยอดคงเหลือที่ยังต้องตามหาและตัดสต็อก (remainingNeeded)
         let remainingNeeded = Number(item.quantity);
 
+        // ทำการวน Loop เพื่อเปิดดูและตัดสต็อกทีละ Lot จาก Array ของ Lot ที่มีอยู่ (ไล่จาก Lot เก่าสุดไปใหม่สุด)
         for (const lot of availableLots) {
+          // ตรวจสอบว่าจำนวนสินค้าที่ยังต้องการตัด (remainingNeeded) เป็น 0 หรือติดลบแล้วหรือไม่
+          // ถ้าใช่ แสดงว่าหยิบของครบตามยอดที่ลูกค้าสั่งแล้ว ให้สั่ง break เพื่อหยุดและออกจาก Loop ทันที ไม่ต้องเดินไปดู Lot ที่เหลือ
           if (remainingNeeded <= 0) break;
 
-          // takeQty: จำนวนชิ้นที่จะตัดออกจาก Lot นี้
+          // คำนวณจำนวนชิ้นที่จะหยิบออกจาก Lot ปัจจุบันนี้ โดยเลือกค่าที่น้อยกว่าระหว่าง:
+          // 1. lot.quantity (จำนวนของที่มีทั้งหมดในกล่อง/Lot นี้)
+          // 2. remainingNeeded (จำนวนของที่ยังขาดอยู่)
+          // เช่น มี 10 ชิ้น แต่ขาดแค่ 3 ชิ้น -> Math.min(10, 3) จะได้ 3 ชิ้น (หยิบเฉพาะเท่าที่ต้องใช้)
           const takeQty = Math.min(lot.quantity, remainingNeeded);
 
+          // นำข้อมูลของชิ้นที่ตัดสินใจหยิบออกจาก Lot ปัจจุบันนี้ บันทึกเพิ่มเข้าไปใน Array ชื่อ withdrawItems
           withdrawItems.push({
             inventory_id: lot.inventory_id,
             inventory_date: lot.inventory_date || new Date(),
@@ -110,22 +132,30 @@ export async function POST(request) {
             price: Number(lot.price || productInfo.product_price || 0),
           });
 
+          // หักลบจำนวนที่เพิ่งหยิบออกไป (takeQty) ออกจากยอดรวมที่ยังต้องการ (remainingNeeded) เพื่ออัปเดตยอดที่ยังคงขาดอยู่
           remainingNeeded -= takeQty;
         }
 
-        // หากสต็อกในทุก Lot รวมกันแล้วยังไม่พอ
+        // เมื่อวนลูปจนจบทุก Lot ในคลังแล้ว หาก remainingNeeded ยังมีค่ามากกว่า 0 แสดงว่าของในโกดังทั้งหมดรวมกันแล้วไม่พอส่งให้ลูกค้า
         if (remainingNeeded > 0) {
+          // คำนวณยอดรวมของสินค้าทั้งหมดที่มีเหลืออยู่ในคลังจริง โดยใช้ .reduce วนบวกฟิลด์ quantity ของทุก Lot
           const totalInStock = availableLots.reduce((sum, l) => sum + Number(l.quantity), 0);
+          
+          // ส่ง Response ข้อผิดพลาดกลับไปยังฝั่ง Frontend ทันทีในรูปแบบ JSON
           return NextResponse.json(
             {
+              // ระบุสถานะว่าการทำงานล้มเหลว
               success: false,
+              // แจ้งข้อความเตือนให้ผู้ใช้ทราบว่าสต็อกไม่พอ พร้อมระบุชื่อสินค้า, ยอดที่ต้องการสั่ง, และยอดของจริงที่ระบบมีอยู่
               error: `สินค้า "${productInfo.product_name}" มีสต็อกคงเหลือไม่เพียงพอ (ต้องการ ${item.quantity} ชิ้น แต่มีในคลัง ${totalInStock} ชิ้น)`,
             },
+            // ส่ง HTTP Status Code 400 (Bad Request) เพื่อแจ้งว่าคำขอสั่งซื้อไม่ถูกต้องเนื่องจากของหมด
             { status: 400 }
           );
         }
       } else {
-        // กรณีสั่งจองล่วงหน้า (Pre-order) -> ใช้รหัส Dummy Lot 00000000...
+        // บล็อกนี้จะทำงานเมื่อ reserve_flag === 'Y' (เป็นการสั่งจองสินค้าล่วงหน้า หรือ Pre-order)
+        // บันทึกรายการลง withdrawItems ทันที โดยไม่ค้นหาหรือแตะต้องสต็อกจริงในคลังสินค้า
         withdrawItems.push({
           inventory_id: '00000000-0000-0000-0000-000000000000',
           inventory_date: new Date(),
@@ -245,9 +275,9 @@ export async function POST(request) {
 
         await deleteCartReq.query(`
           DELETE FROM carts 
-          WHERE username = @username 
+          WHERE UPPER(username) = UPPER(@username) 
             AND product_id = @productId 
-            AND reserve_flag = @reserveFlag
+            AND ISNULL(reserve_flag, 'N') = @reserveFlag
         `);
       }
 

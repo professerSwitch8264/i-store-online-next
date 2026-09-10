@@ -1,7 +1,7 @@
 // src/app/cart-checkout/page.js
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/app/components/auth/AuthProvider';
@@ -9,10 +9,32 @@ import { useCartStore } from '@/app/stores/useCartStore';
 import { useToastStore } from '@/app/stores/useToastStore';
 import { QuantityStepper } from '@/app/components/ui/QuantityStepper';
 import { shippingLocationService } from '@/app/services/shippingLocationService';
-import { orderService } from '@/app/services/orderService';
+import { useOrderStore } from '@/app/stores/useOrderStore';
 import { getThumbnailUrl, formatPrice } from '@/app/lib/utils';
-import { RiDeleteBin6Line, RiShoppingCart2Line, RiBookmarkLine } from 'react-icons/ri';
+import { RiDeleteBin6Line, RiShoppingCart2Line, RiBookmarkLine, RiImageLine } from 'react-icons/ri';
 import { FaShop, FaShopLock } from 'react-icons/fa6';
+
+/**
+ * Component: CheckoutItemThumbnail (แสดงภาพขนาดย่อ หรือสลับเป็นไอคอน RiImageLine เมื่อรูปเสียหรือไม่มีรูป)
+ */
+function CheckoutItemThumbnail({ src, alt }) {
+  const [hasError, setHasError] = useState(false);
+
+  // หากไม่มี URL รูปภาพ หรือเบราว์เซอร์โหลดรูปไม่ขึ้น (onError) ให้สลับเป็นไอคอนสำรองทันที
+  if (!src || hasError) {
+    return <RiImageLine className="w-6 h-6 text-stone-300" />;
+  }
+
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={src}
+      alt={alt || 'product'}
+      className="w-full h-full object-contain"
+      onError={() => setHasError(true)}
+    />
+  );
+}
 
 /**
  * =========================================================================
@@ -49,13 +71,14 @@ function CartCheckoutContent() {
   // items: อาร์เรย์เก็บรายการสินค้าทั้งหมดในตะกร้า
   // fetchCart: ฟังก์ชันดึงข้อมูลตะกร้าล่าสุดจากเซิร์ฟเวอร์
   // updateQuantity: ฟังก์ชันปรับปรุงจำนวนชิ้นของสินค้าในตะกร้า
+  // setLocalQuantity: ฟังก์ชันปรับจำนวนเฉพาะใน UI ทันที (ยังไม่ยิง API)
   // removeItem: ฟังก์ชันลบสินค้าชิ้นนั้นออกจากตะกร้า
-  // clearCart: ฟังก์ชันล้างรายการสินค้าทั้งหมดในโหมดนี้
-  const { items, fetchCart, updateQuantity, removeItem, clearCart } = useCartStore();
+  const { items, fetchCart, updateQuantity, setLocalQuantity, removeItem } = useCartStore();
 
   // showSuccess: ฟังก์ชันแสดง Toast แจ้งเตือนเมื่อทำงานสำเร็จ (แสดง 1.5 วินาที)
   // showError: ฟังก์ชันแสดง Modal หน้าต่างแจ้งเตือนเมื่อเกิดข้อผิดพลาด
-  const { showSuccess, showError } = useToastStore();
+  // showConfirm: ฟังก์ชันเปิด Modal ถามยืนยันการทำรายการ
+  const { showSuccess, showError, showConfirm } = useToastStore();
 
   // shippingLocations: อาร์เรย์เก็บรายชื่อสถานที่จัดส่งทั้งหมดที่ดึงมาจากฐานข้อมูล (เช่น โรงงาน 1, 2, 3)
   const [shippingLocations, setShippingLocations] = useState([]);
@@ -74,6 +97,20 @@ function CartCheckoutContent() {
 
   // updatingItemIds: อ็อบเจกต์เก็บสถานะการอัปเดตหรือลบของแต่ละแถว { [cartId]: boolean } เพื่อแสดง Spinner และล็อคปุ่มขณะยิง API
   const [updatingItemIds, setUpdatingItemIds] = useState({});
+
+  // debounceTimers: useRef สำหรับเก็บตัวจับเวลา Debounce ของแต่ละสินค้า { [itemId]: timerId }
+  const debounceTimers = useRef({});
+
+  // stepperResetKeys: บังคับรีเซ็ตตัวเลข Stepper กลับเป็นค่าเดิมเมื่อกดยกเลิก
+  const [stepperResetKeys, setStepperResetKeys] = useState({});
+
+  // เคลียร์ Timer ทั้งหมดทิ้งอัตโนมัติเมื่อผู้ใช้ออกจากหน้านี้ (Cleanup ป้องกัน Memory Leak)
+  useEffect(() => {
+    const timers = debounceTimers.current;
+    return () => {
+      Object.values(timers).forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
 
   // 1. ดึงรายการสินค้าในตะกร้าของผู้ใช้เมื่อเปิดหน้านี้ขึ้นมา
   useEffect(() => {
@@ -184,36 +221,63 @@ function CartCheckoutContent() {
     }
   };
 
-  // handleClearCurrentMode: ฟังก์ชันล้างรายการทั้งหมดในโหมดปัจจุบัน
-  const handleClearCurrentMode = async () => {
-    if (filteredItems.length === 0) return;
-    const confirmMsg = isPreorder
-      ? 'คุณต้องการล้างรายการสั่งล่วงหน้าทั้งหมดใช่หรือไม่?'
-      : 'คุณต้องการล้างรายการในตะกร้าทั้งหมดใช่หรือไม่?';
-
-    if (window.confirm(confirmMsg)) {
-      try {
-        await clearCart(reserveFlagParam);
-        showSuccess('ล้างรายการเรียบร้อยแล้ว');
-      } catch (err) {
-        showError(err.message || 'เกิดข้อผิดพลาดในการล้างรายการ');
+  // handleUpdateQuantity (แบบ Debounce 500ms):
+  // 1. อัปเดตตัวเลขหน้าจอทันทีเมื่อกด (+) หรือ (-)
+  // 2. หากยังกดรัวๆ จะยกเลิกตัวจับเวลาเดิม แล้วเริ่มนับใหม่ 500ms เสมอ
+  // 3. เมื่อผู้ใช้หยุดกดครบ 500ms ค่อยขึ้นไอคอนหมุนๆ และยิง API ไปบันทึกค่าสุดท้ายครั้งเดียว
+  const handleUpdateQuantity = (itemId, newQty) => {
+    // 🛡️ หากจำนวนลดลงถึง 0 หรือติดลบ ให้หยุด Debounce และเปิด Popup ถามยืนยันการลบผ่าน useToastStore
+    if (newQty <= 0) {
+      if (debounceTimers.current[itemId]) {
+        clearTimeout(debounceTimers.current[itemId]);
+        delete debounceTimers.current[itemId];
       }
+      const targetItem = items.find((i) => i.id === itemId);
+      if (targetItem) {
+        showConfirm({
+          title: 'ยืนยันการลบสินค้า',
+          message: `คุณแน่ใจหรือไม่ว่าต้องการลบรายการ "${targetItem.product?.product_name || 'สินค้านี้'}" ออกจากตะกร้า?`,
+          confirmText: 'ยืนยันการลบ',
+          confirmColor: 'red',
+          onConfirm: () => handleRemoveItem(itemId),
+          onCancel: () => {
+            setStepperResetKeys((prev) => ({
+              ...prev,
+              [itemId]: (prev[itemId] || 0) + 1,
+            }));
+          },
+        });
+      }
+      return;
     }
+
+    // ขั้นที่ 1: อัปเดตตัวเลขและราคารวมบนหน้าจอทันที เพื่อให้หน้าจอไม่กระตุกตามมือ
+    setLocalQuantity(itemId, newQty);
+
+    // ขั้นที่ 2: ถ้ามี Timer เดิมที่กำลังนับถอยหลังของสินค้านี้อยู่ ให้ยกเลิกทิ้งทันที
+    if (debounceTimers.current[itemId]) {
+      clearTimeout(debounceTimers.current[itemId]);
+    }
+
+    // ขั้นที่ 3: เริ่มนับถอยหลังใหม่ 500 มิลลิวินาที (0.5 วินาที)
+    debounceTimers.current[itemId] = setTimeout(async () => {
+      // 3.1 เมื่อหยุดกดครบเวลา ให้แสดงไอคอนหมุนๆ และล็อคปุ่มใน Stepper
+      setUpdatingItemIds((prev) => ({ ...prev, [itemId]: true }));
+
+      try {
+        // 3.2 ยิง API PUT /api/cart/[id] ไปบันทึกค่าสุดท้ายลงฐานข้อมูลจริง
+        await updateQuantity(itemId, newQty);
+      } catch (err) {
+        showError(err.message || 'เกิดข้อผิดพลาดในการบันทึกจำนวนสินค้า');
+      } finally {
+        // 3.3 บันทึกเสร็จแล้ว ปิดไอคอนหมุนๆ และปลดล็อคปุ่มกลับมาเป็นปกติ
+        setUpdatingItemIds((prev) => ({ ...prev, [itemId]: false }));
+        delete debounceTimers.current[itemId];
+      }
+    }, 500);
   };
 
-  // handleUpdateQuantity: ฟังก์ชันปรับจำนวนสินค้า พร้อมแสดงไอคอนหมุนๆ และล็อคการกดปุ่มใน Stepper
-  const handleUpdateQuantity = async (itemId, newQty) => {
-    setUpdatingItemIds((prev) => ({ ...prev, [itemId]: true }));
-    try {
-      await updateQuantity(itemId, newQty);
-    } catch (err) {
-      showError(err.message || 'เกิดข้อผิดพลาดในการอัปเดตจำนวนสินค้า');
-    } finally {
-      setUpdatingItemIds((prev) => ({ ...prev, [itemId]: false }));
-    }
-  };
-
-  // handleRemoveItem: ฟังก์ชันลบรายการสินค้าทีละชิ้น พร้อมแสดงไอคอนหมุนๆ บนปุ่มถังขยะ
+  // handleRemoveItem: ฟังก์ชันลบรายการสินค้าทีละชิ้น พร้อมแสดงไอคอนหมุนๆ
   const handleRemoveItem = async (itemId) => {
     setUpdatingItemIds((prev) => ({ ...prev, [itemId]: true }));
     try {
@@ -231,6 +295,20 @@ function CartCheckoutContent() {
     if (filteredItems.length === 0) {
       showError('ไม่มีรายการสินค้าในตะกร้า');
       return;
+    }
+
+    // 🛡️ ตรวจสอบความถูกต้องของสินค้าทุกรายการก่อนสั่ง
+    for (const item of filteredItems) {
+      const qty = Number(item.quantity);
+      const realStock = typeof item.product?.stock_quantity === 'number' ? item.product.stock_quantity : 0;
+      if (isNaN(qty) || qty <= 0) {
+        showError(`สินค้า "${item.product?.product_name || 'ไม่ทราบชื่อ'}" มีจำนวน 0 ชิ้น กรุณาลบออกจากตะกร้า`);
+        return;
+      }
+      if (!isPreorder && qty > realStock) {
+        showError(`สินค้า "${item.product?.product_name || 'ไม่ทราบชื่อ'}" สต็อกคงเหลือไม่เพียงพอ (คงเหลือ ${realStock} ${item.product?.unit_name || 'ชิ้น'})`);
+        return;
+      }
     }
 
     if (!selectedLocationId) {
@@ -265,12 +343,23 @@ function CartCheckoutContent() {
           })),
         };
 
-        await orderService.placeOrder(payload, userInfo?.securityToken);
+        await useOrderStore.getState().placeOrder(payload, userInfo?.securityToken);
       }
-
-      // รีเฟรชข้อมูลตะกร้าใหม่หลังจากส่งคำสั่งซื้อสำเร็จ (สินค้าที่ถูกสั่งจะหายไป)
+      // 🧹 เคลียร์สินค้าที่ถูกสั่งซื้อแล้วออกจาก Local State ในเครื่องทันที
+      const orderedProductIds = storeGroups.flatMap((g) => g.items.map((i) => i.product_id));
+      useCartStore.setState((state) => {
+        const remaining = state.items.filter((i) => !orderedProductIds.includes(i.product_id));
+        return {
+          items: remaining,
+          summary: {
+            totalItems: remaining.length,
+            totalQuantity: remaining.reduce((sum, i) => sum + i.quantity, 0),
+            totalPrice: remaining.reduce((sum, i) => sum + (i.product?.product_price || 0) * i.quantity, 0),
+          },
+        };
+      });
+      // รีเฟรชข้อมูลตะกร้าใหม่จาก Server
       await fetchCart();
-
       // แสดง Toast แจ้งเตือนความสำเร็จ
       showSuccess(
         isPreorder
@@ -306,7 +395,7 @@ function CartCheckoutContent() {
 
   return (
     <div className="flex-1 bg-[#f8f9fa] text-[#363636] flex flex-col font-sans">
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-6">
         {/* ─────────────────────────────────────────────────────────────
             ส่วนที่ 1: การ์ดข้อมูลผู้สั่งซื้อ + สวิตช์สลับโหมด + Dropdown สถานที่จัดส่ง
             ───────────────────────────────────────────────────────────── */}
@@ -318,35 +407,9 @@ function CartCheckoutContent() {
               {isPreorder ? 'ตรวจสอบและยืนยันการสั่งล่วงหน้า' : 'ตรวจสอบและยืนยันการสั่งซื้อ'}
             </h1>
 
-            {/* สวิตช์สลับโหมดแคปซูล (Segmented Control แบบไอคอนคู่ [🛒] | [🔖]) */}
+            {/* สวิตช์สลับโหมดแคปซูล (Segmented Control แบบไอคอนคู่ [🔖] | [🛒]) */}
             <div className="inline-flex items-center p-1 bg-stone-100 rounded-lg border border-stone-300 self-start sm:self-auto">
-              {/* ฝั่งซ้าย: ตะกร้าสินค้าปกติ [ 🛒 ] */}
-              <button
-                type="button"
-                onClick={() => router.replace('/cart-checkout')}
-                className={`relative flex items-center justify-center px-4 py-1.5 rounded-md transition-all cursor-pointer ${
-                  !isPreorder
-                    ? 'bg-[#2B2F38] text-white shadow-xs'
-                    : 'text-stone-600 hover:text-[#2B2F38] hover:bg-stone-200/60'
-                }`}
-                title="รายการสินค้าปกติ"
-              >
-                <RiShoppingCart2Line className="w-4 h-4 sm:w-5 sm:h-5" />
-                {normalCount > 0 && (
-                  <span
-                    className={`absolute -top-1.5 -right-1.5 text-[9px] sm:text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center shadow-2xs leading-none ${
-                      !isPreorder ? 'bg-[#EB6E3E] text-white' : 'bg-stone-400 text-white'
-                    }`}
-                  >
-                    {normalCount}
-                  </span>
-                )}
-              </button>
-
-              {/* เส้นคั่นตรงกลางระหว่างสองโหมด */}
-              <div className="w-[1px] h-4 bg-stone-300 mx-1" />
-
-              {/* ฝั่งขวา: รายการสั่งล่วงหน้า [ 🔖 ] */}
+              {/* ฝั่งซ้าย: รายการสั่งล่วงหน้า [ 🔖 ] */}
               <button
                 type="button"
                 onClick={() => router.replace('/cart-checkout?reserve_flag=Y')}
@@ -365,6 +428,32 @@ function CartCheckoutContent() {
                     }`}
                   >
                     {preorderCount}
+                  </span>
+                )}
+              </button>
+
+              {/* เส้นคั่นตรงกลางระหว่างสองโหมด */}
+              <div className="w-[1px] h-4 bg-stone-300 mx-1" />
+
+              {/* ฝั่งขวา: ตะกร้าสินค้าปกติ [ 🛒 ] */}
+              <button
+                type="button"
+                onClick={() => router.replace('/cart-checkout')}
+                className={`relative flex items-center justify-center px-4 py-1.5 rounded-md transition-all cursor-pointer ${
+                  !isPreorder
+                    ? 'bg-[#2B2F38] text-white shadow-xs'
+                    : 'text-stone-600 hover:text-[#2B2F38] hover:bg-stone-200/60'
+                }`}
+                title="รายการสินค้าปกติ"
+              >
+                <RiShoppingCart2Line className="w-4 h-4 sm:w-5 sm:h-5" />
+                {normalCount > 0 && (
+                  <span
+                    className={`absolute -top-1.5 -right-1.5 text-[9px] sm:text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center shadow-2xs leading-none ${
+                      !isPreorder ? 'bg-[#EB6E3E] text-white' : 'bg-stone-400 text-white'
+                    }`}
+                  >
+                    {normalCount}
                   </span>
                 )}
               </button>
@@ -467,18 +556,6 @@ function CartCheckoutContent() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* แถบเครื่องมือช่วยเหลือ: ปุ่มล้างรายการทั้งหมดในโหมดนี้ */}
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={handleClearCurrentMode}
-                className="text-xs text-stone-500 hover:text-red-600 flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-red-50 border border-stone-200 transition-colors cursor-pointer"
-              >
-                <RiDeleteBin6Line className="w-3.5 h-3.5" />
-                <span>{isPreorder ? 'ล้างรายการสั่งล่วงหน้าทั้งหมด' : 'ล้างตะกร้าทั้งหมด'}</span>
-              </button>
-            </div>
-
             {/* แสดงการ์ดรายการสินค้าแยกตามแต่ละร้านค้า */}
             {storeGroups.map((group) => (
               <div
@@ -573,31 +650,10 @@ function CartCheckoutContent() {
 
                         return (
                           <tr key={item.id} className="hover:bg-stone-50/50 transition-colors">
-                            {/* 1. รูปภาพขนาดย่อ */}
+                            {/* 1. รูปภาพขนาดย่อ (สลับเป็นไอคอนสำรองอัตโนมัติหากรูปเสีย) */}
                             <td className="py-3 px-3 text-center">
                               <div className="w-12 h-12 rounded-md bg-white border border-[#D3D3D3] p-1 mx-auto flex items-center justify-center overflow-hidden">
-                                {thumb ? (
-                                  /* eslint-disable-next-line @next/next/no-img-element */
-                                  <img
-                                    src={thumb}
-                                    alt={product?.product_name || 'product'}
-                                    className="w-full h-full object-contain"
-                                  />
-                                ) : (
-                                  <svg
-                                    className="w-6 h-6 text-stone-300"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={1.5}
-                                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                    />
-                                  </svg>
-                                )}
+                                <CheckoutItemThumbnail src={thumb} alt={product?.product_name} />
                               </div>
                             </td>
 
@@ -617,9 +673,10 @@ function CartCheckoutContent() {
                             <td className="py-3 px-3">
                               <div className="flex justify-center">
                                 <QuantityStepper
+                                  key={`${item.id}-${stepperResetKeys[item.id] || 0}`}
                                   value={item.quantity}
                                   step={batchSize}
-                                  min={batchSize}
+                                  min={0}
                                   max={maxLimit}
                                   loading={Boolean(updatingItemIds[item.id])}
                                   disabled={Boolean(updatingItemIds[item.id])}
@@ -644,12 +701,20 @@ function CartCheckoutContent() {
                               <button
                                 type="button"
                                 disabled={Boolean(updatingItemIds[item.id])}
-                                onClick={() => handleRemoveItem(item.id)}
+                                onClick={() => {
+                                  showConfirm({
+                                    title: 'ยืนยันการลบสินค้า',
+                                    message: `คุณแน่ใจหรือไม่ว่าต้องการลบรายการ "${product?.product_name || 'สินค้านี้'}" ออกจากตะกร้า?`,
+                                    confirmText: 'ยืนยันการลบ',
+                                    confirmColor: 'red',
+                                    onConfirm: () => handleRemoveItem(item.id),
+                                  });
+                                }}
                                 className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all cursor-pointer inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
                                 title={updatingItemIds[item.id] ? 'กำลังลบรายการ...' : 'ลบรายการนี้'}
                               >
                                 {updatingItemIds[item.id] ? (
-                                  <svg className="w-4 h-4 animate-spin text-red-500" fill="none" viewBox="0 0 24 24">
+                                  <svg className="w-4 h-4 animate-spin text-[#2B2F38]" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                                   </svg>

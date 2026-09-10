@@ -45,6 +45,9 @@ export function PreorderModal({ isOpen, onClose, product, onConfirm }) {
   // imageUrl: ดึง URL รูปภาพเต็มของสินค้า
   const imageUrl = getThumbnailUrl(product.product_thumbnail);
 
+  // restockDay: วันปิดรอบออเดอร์ของร้านค้า (ค่าเริ่มต้นคือวันที่ 5 ตาม Easy Store)
+  const restockDay = product.restock_day || 5;
+
   // validQty: จำนวนชิ้นที่การันตีว่าถูกต้อง (ไม่เป็น 0 และไม่ต่ำกว่า batchSize)
   const validQty = quantity > 0 ? quantity : batchSize;
 
@@ -75,7 +78,7 @@ export function PreorderModal({ isOpen, onClose, product, onConfirm }) {
       <div className="relative w-full max-w-[380px] sm:max-w-[400px] bg-white rounded-lg shadow-2xl overflow-hidden z-10 flex flex-col border border-stone-200">
         {/* หัวข้อหน้าต่าง */}
         <div className="px-5 py-3 border-b border-stone-100 bg-white">
-          <h2 className="text-sm sm:text-base font-bold text-[#2B2F38]">สั่งล่วงหน้า (Pre-order)</h2>
+          <h2 className="text-sm sm:text-base font-bold text-[#2B2F38]">สั่งสินค้าล่วงหน้า</h2>
         </div>
 
         {/* แบนเนอร์รูปสินค้า */}
@@ -158,8 +161,13 @@ export function PreorderModal({ isOpen, onClose, product, onConfirm }) {
             </span>
           </div>
 
+          {/* ข้อความเงื่อนไขระยะเวลาและรอบเติมของ (Easy Store style: อยู่เหนือปุ่มยกเลิกและสั่งล่วงหน้า) */}
+          <div className="pt-0.5 text-[11px] text-[#DC2626] font-medium leading-relaxed">
+            *ระยะเวลาการดำเนินการประมาณ 1 เดือน **ปิดรับออเดอร์ วันที่ {restockDay} ของทุกๆ เดือน
+          </div>
+
           {/* ปุ่มคู่ Actions: ยกเลิก / ยืนยันสั่งล่วงหน้า */}
-          <div className="grid grid-cols-2 gap-3 pt-1.5">
+          <div className="grid grid-cols-2 gap-3 pt-1">
             <button
               type="button"
               onClick={onClose}
@@ -205,11 +213,6 @@ export function PreorderModal({ isOpen, onClose, product, onConfirm }) {
                 </div>
               )}
             </button>
-          </div>
-
-          {/* ข้อความเงื่อนไขระยะเวลา */}
-          <div className="pt-1 text-[11px] text-[#DC2626] font-medium leading-relaxed">
-            *ระยะเวลาการดำเนินการประมาณ 1 เดือน
           </div>
         </div>
       </div>

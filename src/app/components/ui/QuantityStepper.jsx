@@ -150,9 +150,14 @@ export function QuantityStepper({
       {/* ปุ่มลด (-) */}
       <button
         type="button"
-        disabled={disabled || loading || isMin}
+        disabled={disabled || loading}
+        aria-disabled={isMin}
         onClick={handleDecrease}
-        className="w-7 h-7 flex items-center justify-center text-black hover:bg-stone-100 active:bg-stone-200 text-xs font-bold transition-colors cursor-pointer border-r border-stone-200 disabled:opacity-30 disabled:cursor-not-allowed"
+        className={`w-6 sm:w-7 h-6.5 sm:h-7 flex items-center justify-center text-xs font-bold transition-colors border-r border-stone-200 ${
+          disabled || loading || isMin
+            ? 'opacity-30 cursor-not-allowed text-stone-400 bg-stone-50'
+            : 'text-black hover:bg-stone-100 active:bg-stone-200 cursor-pointer'
+        }`}
         title={loading ? 'กำลังอัปเดต...' : isMin ? `จำนวนต่ำสุดคือ ${minVal}` : 'ลดจำนวน'}
       >
         <span>&minus;</span>
@@ -161,10 +166,10 @@ export function QuantityStepper({
       {/* ช่องกรอกตัวเลข หรือ ไอคอนหมุนๆ ตอนกำลังยิง API */}
       {loading ? (
         <div
-          className="w-8.5 sm:w-10 h-7 flex items-center justify-center bg-stone-50 text-stone-600 select-none cursor-wait"
+          className="w-7 sm:w-10 h-6.5 sm:h-7 flex items-center justify-center bg-stone-50 text-stone-600 select-none cursor-wait"
           title="กำลังอัปเดตจำนวน..."
         >
-          <svg className="w-3.5 h-3.5 animate-spin text-[#2B2F38]" fill="none" viewBox="0 0 24 24">
+          <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin text-[#2B2F38]" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
           </svg>
@@ -180,16 +185,21 @@ export function QuantityStepper({
           onChange={handleInputChange}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className="w-8.5 sm:w-10 h-7 text-center text-xs font-bold text-black bg-transparent focus:outline-none focus:bg-stone-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="w-7 sm:w-10 h-6.5 sm:h-7 text-center text-[11px] sm:text-xs font-bold text-black bg-transparent focus:outline-none focus:bg-stone-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none px-0.5"
         />
       )}
 
       {/* ปุ่มเพิ่ม (+) */}
       <button
         type="button"
-        disabled={disabled || loading || isMax}
+        disabled={disabled || loading}
+        aria-disabled={isMax}
         onClick={handleIncrease}
-        className="w-7 h-7 flex items-center justify-center text-black hover:bg-stone-100 active:bg-stone-200 text-xs font-bold transition-colors cursor-pointer border-l border-stone-200 disabled:opacity-30 disabled:cursor-not-allowed"
+        className={`w-6 sm:w-7 h-6.5 sm:h-7 flex items-center justify-center text-xs font-bold transition-colors border-l border-stone-200 ${
+          disabled || loading || isMax
+            ? 'opacity-30 cursor-not-allowed text-stone-400 bg-stone-50'
+            : 'text-black hover:bg-stone-100 active:bg-stone-200 cursor-pointer'
+        }`}
         title={loading ? 'กำลังอัปเดต...' : isMax ? `จำนวนสูงสุดคือ ${maxAllowed}` : 'เพิ่มจำนวน'}
       >
         <span>+</span>

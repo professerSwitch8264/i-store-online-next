@@ -10,7 +10,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/components/auth/AuthProvider';
-// import { useApprovalStore } from '@/stores/useApprovalStore';
+import { useOrderStore } from '@/app/stores/useOrderStore';
 import {
   RiUser3Line,
   RiFileList3Line,
@@ -22,19 +22,18 @@ import {
 export default function Navbar() {
   const { userInfo, logout } = useAuth();
 
-  console.log('Navbar - userInfo:', userInfo); // ตรวจสอบข้อมูลผู้ใช้ใน Navbar
-  // const { pendingCount, fetchPendingCount } = useApprovalStore();
+  const { pendingCount, fetchPendingCount } = useOrderStore();
   const pathname = usePathname();
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
 
   // โหลดจำนวนคำขออนุมัติเมื่อล็อกอิน
-//   useEffect(() => {
-//     if (userInfo?.securityToken) {
-//       fetchPendingCount(userInfo.securityToken);
-//     }
-//   }, [userInfo?.securityToken]);
+  useEffect(() => {
+    if (userInfo?.securityToken) {
+      fetchPendingCount(userInfo.securityToken);
+    }
+  }, [userInfo?.securityToken, fetchPendingCount]);
 
   // ตรวจสอบแท็บที่กำลังเปิดอยู่ตาม URL Pathname
   const isRequisition =
@@ -44,26 +43,28 @@ export default function Navbar() {
     pathname.startsWith('/cart-checkout');
   const isStoreManagement = pathname.startsWith('/store-management') || pathname.startsWith('/admin');
 
-  // ปิดเมนูเมื่อคลิกนอกพื้นที่ (Click Outside)
-//   useEffect(() => {
-//     function handleClickOutside(event) {
-//       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-//         setUserMenuOpen(false);
-//       }
-//     }
-//     if (userMenuOpen) {
-//       document.addEventListener('mousedown', handleClickOutside);
-//     }
-//     return () => {
-//       document.removeEventListener('mousedown', handleClickOutside);
-//     };
-//   }, [userMenuOpen]);
+  // ปิดเมนูเมื่อคลิกนอกพื้นที่ (Click Outside) ทั้งการคลิกเมาส์และการสัมผัสบนมือถือ
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [userMenuOpen]);
 
   return (
     <nav className="w-full bg-white border-b border-stone-200 text-xs select-none sticky top-0 z-50 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-8 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-8 flex items-center justify-between">
         {/* เมนูหลักด้านซ้าย: เบิกสินค้า | จัดการร้านค้า */}
-        <div className="flex items-center gap-4 text-stone-900 font-medium text-[11px] sm:text-xs">
+        <div className="flex items-center gap-2.5 sm:gap-4 text-stone-900 font-medium text-[11px] sm:text-xs shrink-0">
           <Link
             href="/"
             className={`transition-colors py-0.5 cursor-pointer ${isRequisition ? 'font-bold text-[#2B2F38] border-b-2 border-[#EB6E3E]' : 'text-stone-500 hover:text-[#2B2F38]'
@@ -84,26 +85,26 @@ export default function Navbar() {
         </div>
 
         {/* ข้อมูลโปรไฟล์พนักงานและปุ่มออกจากระบบ ด้านขวา */}
-        <div className="flex items-center gap-4 text-xs">
+        <div className="flex items-center gap-2 sm:gap-4 text-xs shrink-0">
           <div className="relative" ref={userMenuRef}>
             <button
               type="button"
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-2 text-stone-700 hover:text-[#2B2F38] transition-colors cursor-pointer text-left py-0.5"
+              className="flex items-center gap-1.5 sm:gap-2 text-stone-700 hover:text-[#2B2F38] transition-colors cursor-pointer text-left py-0.5"
             >
               <div className="w-5.5 h-5.5 rounded-full bg-[#2B2F38] text-white flex items-center justify-center text-[10px] font-bold uppercase shadow-2xs shrink-0">
                 <span>
                   {(userInfo?.info?.firstname?.charAt(0) || userInfo?.info?.username?.charAt(0) || 'U').toUpperCase()}
                 </span>
               </div>
-              <span className="font-medium text-xs text-stone-900">
+              <span className="font-medium text-xs text-stone-900 hidden sm:inline max-w-[130px] lg:max-w-none truncate">
                 {userInfo?.info?.fullnameTH ||
                   (userInfo?.info?.firstname_th
                     ? `${userInfo.info.firstname_th} ${userInfo.info.lastname_th || ''}`
                     : userInfo?.info?.username || 'ผู้ใช้งาน')}
               </span>
               <svg
-                className={`w-3 h-3 text-stone-500 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`}
+                className={`w-3 h-3 text-stone-500 transition-transform shrink-0 ${userMenuOpen ? 'rotate-180' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -169,11 +170,11 @@ export default function Navbar() {
                         <RiCheckboxCircleLine className="w-4 h-4 text-stone-500 shrink-0" />
                         <span>รายการรออนุมัติ</span>
                       </div>
-                      {/* {pendingCount > 0 && (
+                      {pendingCount > 0 && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#EB6E3E] text-white shadow-2xs shrink-0">
                           {pendingCount}
                         </span>
-                      )} */}
+                      )}
                     </Link>
 
                     {/* 4. ตั้งค่าระบบ ( เฉพาะแอดมิน ) */}

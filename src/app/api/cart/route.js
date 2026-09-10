@@ -141,11 +141,23 @@ export async function POST(request) {
 
     const pool = await getDbPool();
 
-    // 1. ตรวจสอบว่ามีสินค้านี้ในระบบหรือไม่
+    // 1. ตรวจสอบว่ามีสินค้านี้ในระบบหรือไม่ พร้อมดึงสต็อกจริงและ Order Limit
     const checkProduct = await pool
       .request()
       .input('pid', sql.UniqueIdentifier, product_id)
-      .query('SELECT product_id, product_name, order_limit FROM products WHERE product_id = @pid');
+      .query(`
+        SELECT 
+          p.product_id, 
+          p.product_name, 
+          p.order_limit,
+          p.batch_size,
+          u.unit AS unit_name,
+          ISNULL(inv.quantity, 0) AS stock_quantity
+        FROM products p
+        LEFT JOIN units u ON p.unit_id = u.unit_id
+        LEFT JOIN v_inventory inv ON p.product_id = inv.product_id
+        WHERE p.product_id = @pid
+      `);
 
     if (checkProduct.recordset.length === 0) {
       return NextResponse.json(
@@ -153,6 +165,9 @@ export async function POST(request) {
         { status: 404 }
       );
     }
+
+    const product = checkProduct.recordset[0];
+    const batchSize = product.batch_size && product.batch_size > 0 ? product.batch_size : 1;
 
     // 2. ตรวจสอบว่าในตะกร้ามีสินค้านี้อยู่แล้วหรือไม่
     const checkCart = await pool
@@ -167,6 +182,33 @@ export async function POST(request) {
           AND product_id = @pid 
           AND reserve_flag = @reserveFlag
       `);
+
+    // 3. ตรวจสอบสต็อกคงเหลือและขีดจำกัดสูงสุด (สำหรับสินค้าตะกร้าปกติ reserve_flag = 'N')
+    if (reserve_flag !== 'Y') {
+      const realStock = typeof product.stock_quantity === 'number' ? product.stock_quantity : 0;
+      let stockOrLimit = realStock;
+
+      if (typeof product.order_limit === 'number' && product.order_limit > 0) {
+        stockOrLimit = Math.min(realStock, product.order_limit);
+      }
+
+      const maxMultiple = Math.floor(stockOrLimit / batchSize) * batchSize;
+      const maxLimit = maxMultiple >= batchSize ? maxMultiple : stockOrLimit;
+
+      const existingQty = checkCart.recordset.length > 0 ? checkCart.recordset[0].quantity : 0;
+      const totalRequestedQty = existingQty + quantity;
+
+      // ตรวจสอบว่ายอดเดิมในตะกร้ามีครบแล้ว หรือยอดรวมเดิม + ยอดใหม่ที่จะเพิ่ม เกินเพดานสูงสุดหรือไม่ (ตรงตาม Easy Store)
+      if (existingQty >= maxLimit || totalRequestedQty > maxLimit) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'สินค้าในตะกร้ามีครบจำนวนจำกัดสูงสุดแล้ว',
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     if (checkCart.recordset.length > 0) {
       // 2.1 มีอยู่แล้ว -> UPDATE บวกจำนวนเพิ่มเข้าไป

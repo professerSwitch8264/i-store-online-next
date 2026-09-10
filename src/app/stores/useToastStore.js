@@ -26,13 +26,27 @@ export const useToastStore = create((set) => ({
   // errorMessage: ข้อความแจ้งเตือนข้อผิดพลาด
   errorMessage: '',
 
+  // confirmVisible: สถานะการแสดงผล Modal ยืนยันการทำรายการ (Confirmation Modal)
+  confirmVisible: false,
+
+  // confirmConfig: อ็อบเจกต์การตั้งค่า Modal ยืนยัน (หัวข้อ, ข้อความ, ปุ่ม, สีปุ่ม, Callback)
+  confirmConfig: {
+    title: 'ยืนยันการทำรายการ',
+    message: '',
+    confirmText: 'ยืนยัน',
+    cancelText: 'ยกเลิก',
+    confirmColor: 'red', // 'red' | 'green' | 'dark'
+    onConfirm: null,
+    onCancel: null,
+  },
+
   /**
    * showSuccess: ฟังก์ชันแสดง Toast สำเร็จ 1.5 วินาที แล้วจะซ่อนไปเองอัตโนมัติ
    * @param {string} message - ข้อความแจ้งเตือน
    */
   showSuccess: (message = 'ดำเนินการเรียบร้อยแล้ว') => {
     if (successTimer) clearTimeout(successTimer);
-    set({ successVisible: true, successMessage: message, errorVisible: false });
+    set({ successVisible: true, successMessage: message, errorVisible: false, confirmVisible: false });
     successTimer = setTimeout(() => {
       set({ successVisible: false });
     }, 1500);
@@ -52,7 +66,7 @@ export const useToastStore = create((set) => ({
    */
   showError: (message) => {
     if (successTimer) clearTimeout(successTimer);
-    set({ errorVisible: true, errorMessage: message, successVisible: false });
+    set({ errorVisible: true, errorMessage: message, successVisible: false, confirmVisible: false });
   },
 
   /**
@@ -60,5 +74,41 @@ export const useToastStore = create((set) => ({
    */
   hideError: () => {
     set({ errorVisible: false, errorMessage: '' });
+  },
+
+  /**
+   * showConfirm: ฟังก์ชันเปิด Popup ถามยืนยันการทำรายการ (Format เดียวกับหน้า Approvals)
+   */
+  showConfirm: ({
+    title = 'ยืนยันการทำรายการ',
+    message = '',
+    confirmText = 'ยืนยัน',
+    cancelText = 'ยกเลิก',
+    confirmColor = 'red',
+    onConfirm = null,
+    onCancel = null,
+  } = {}) => {
+    if (successTimer) clearTimeout(successTimer);
+    set({
+      confirmVisible: true,
+      confirmConfig: {
+        title,
+        message,
+        confirmText,
+        cancelText,
+        confirmColor,
+        onConfirm,
+        onCancel,
+      },
+      successVisible: false,
+      errorVisible: false,
+    });
+  },
+
+  /**
+   * hideConfirm: ฟังก์ชันสั่งปิด Modal ยืนยัน
+   */
+  hideConfirm: () => {
+    set({ confirmVisible: false });
   },
 }));

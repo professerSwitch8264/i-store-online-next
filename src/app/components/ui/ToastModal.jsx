@@ -20,6 +20,26 @@ export function ToastModal() {
   const errorMessage = useToastStore((state) => state.errorMessage);
   const hideError = useToastStore((state) => state.hideError);
 
+  const confirmVisible = useToastStore((state) => state.confirmVisible);
+  const confirmConfig = useToastStore((state) => state.confirmConfig);
+  const hideConfirm = useToastStore((state) => state.hideConfirm);
+
+  // ฟังก์ชันกดยืนยันใน Confirm Modal
+  const handleConfirmAction = () => {
+    hideConfirm();
+    if (confirmConfig?.onConfirm) {
+      confirmConfig.onConfirm();
+    }
+  };
+
+  // ฟังก์ชันกดยกเลิกใน Confirm Modal
+  const handleCancelAction = () => {
+    hideConfirm();
+    if (confirmConfig?.onCancel) {
+      confirmConfig.onCancel();
+    }
+  };
+
   return (
     <>
       {/* ─────────────────────────────────────────────────────────────
@@ -57,7 +77,7 @@ export function ToastModal() {
           2. แบบข้อผิดพลาด / แจ้งเตือน: Error Alert Modal (การ์ดขาว + ปุ่มปิดสีดำ)
           ───────────────────────────────────────────────────────────── */}
       {errorVisible && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fadeIn">
+        <div data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-2xl p-6 sm:p-8 max-w-sm w-full mx-auto flex flex-col items-center text-center gap-6 border border-stone-200 animate-scale">
             {/* ข้อความแจ้งเตือน */}
             <p className="text-sm sm:text-base font-semibold text-black leading-relaxed pt-2">
@@ -85,6 +105,47 @@ export function ToastModal() {
               </svg>
               <span>CLOSE</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          3. แบบยืนยันการทำรายการ: Confirmation Modal (Format เดียวกับหน้า Approvals)
+          ───────────────────────────────────────────────────────────── */}
+      {confirmVisible && confirmConfig && (
+        <div data-modal="true" className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 animate-fadeIn">
+          <div className="bg-white rounded-lg shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4 font-sans animate-scale">
+            <div>
+              <h4 className="text-sm font-bold text-stone-800">
+                {confirmConfig.title || 'ยืนยันการทำรายการ'}
+              </h4>
+              <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
+                {confirmConfig.message}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={handleCancelAction}
+                className="px-4 py-2 bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 text-xs font-medium rounded-md transition-colors cursor-pointer"
+              >
+                {confirmConfig.cancelText || 'ยกเลิก'}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAction}
+                className={`px-4 py-2 text-white text-xs font-medium rounded-md transition-colors shadow-xs cursor-pointer ${
+                  confirmConfig.confirmColor === 'green'
+                    ? 'bg-[#2e7d32] hover:bg-[#1b5e20]'
+                    : confirmConfig.confirmColor === 'dark'
+                    ? 'bg-[#2B2F38] hover:bg-[#1E2229]'
+                    : 'bg-red-600 hover:bg-red-700 active:bg-red-800'
+                }`}
+              >
+                {confirmConfig.confirmText || 'ยืนยัน'}
+              </button>
+            </div>
           </div>
         </div>
       )}

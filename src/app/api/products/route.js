@@ -21,9 +21,11 @@ export async function GET(request) {
     const storeId = searchParams.get('store_id') || '';
 
     // 📄 คำนวณหน้าและจำนวนที่จะดึง
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '12', 10)));
-    const skip = (page - 1) * limit;
+    const parsedPage = parseInt(searchParams.get('page'), 10);
+    const page = isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+    const parsedLimit = parseInt(searchParams.get('limit'), 10);
+    const limit = isNaN(parsedLimit) || parsedLimit < 1 ? 12 : Math.min(100, parsedLimit);
+    const skip = Math.max(0, (page - 1) * limit);
 
     const pool = await getDbPool();
     const req = pool.request();
@@ -39,9 +41,12 @@ export async function GET(request) {
         p.store_id,
         p.category_id,
         p.unit_id,
+        p.order_limit,
+        p.batch_size,
         c.category_name,
         s.store_name,
         s.store_access,
+        s.restock_day,
         u.unit AS unit_name,
         ISNULL(inv.quantity, 0) AS stock_quantity,
         COUNT(*) OVER() AS total_count

@@ -1,0 +1,38 @@
+// src/app/store-management/info/page.js
+'use client';
+
+import { FaShop } from 'react-icons/fa6';
+
+export default function StoreInfoPage() {
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-[#D3D3D3]/80 flex flex-col overflow-hidden min-h-[420px]">
+      {/* ส่วนหัวหน้า */}
+      <div className="p-5 sm:p-6 border-b border-[#D3D3D3] bg-white">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-md bg-stone-100 flex items-center justify-center text-[#2B2F38]">
+            <FaShop className="w-4.5 h-4.5" />
+          </div>
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold text-[#2B2F38]">
+              ข้อมูลร้านค้า
+            </h1>
+            <p className="text-xs text-[#363636]/70 mt-0.5 font-normal">
+              จัดการข้อมูลพื้นฐาน รายละเอียดร้านค้า และการตั้งค่าทั่วไป
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* พื้นที่เนื้อหา (หน้าโล่งสำหรับเตรียมพัฒนา) */}
+      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+        <div className="w-14 h-14 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 mb-3">
+          <FaShop className="w-6 h-6" />
+        </div>
+        <p className="text-sm font-medium text-[#2B2F38]">หน้าข้อมูลร้านค้า</p>
+        <p className="text-xs text-stone-500 mt-1 max-w-sm">
+          หน้านี้ถูกสร้างขึ้นเพื่อเตรียมพร้อมสำหรับการเชื่อมต่อข้อมูลร้านค้าในขั้นตอนถัดไป
+        </p>
+      </div>
+    </div>
+  );
+}

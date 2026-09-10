@@ -30,42 +30,43 @@ export function SearchHeader() {
 
   return (
     <header className="w-full bg-white border-b border-stone-200 sticky top-8 z-40 shadow-xs select-none">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
-        <div className="flex items-center justify-between gap-4 sm:gap-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2 sm:py-3.5">
+        {/* จัดวาง โลโก้ + ช่องค้นหา + ตะกร้าสินค้า ในแถวเดียวกันแบบ Responsive เต็มรูปแบบ */}
+        <div className="flex items-center justify-between gap-1.5 sm:gap-6">
           {/* 1. โลโก้ i-Store ด้านซ้าย */}
           <div className="flex items-center shrink-0 cursor-pointer">
             <Image
               src="/iStore.png"
               alt="i-Store Logo"
-              width={160}
-              height={50}
-              className="h-9 sm:h-10 w-auto object-contain"
+              width={200}
+              height={65}
+              className="h-12 sm:h-16 w-auto object-contain"
               priority
             />
           </div>
 
-          {/* 2. กล่องค้นหาสินค้า (ตรงกลาง) */}
-          <div className="flex-1 max-w-3xl flex justify-center">
-            <div className="w-full flex items-center bg-stone-50 hover:bg-white p-1 rounded-md border border-stone-300 transition-all focus-within:border-[#2B2F38] focus-within:bg-white focus-within:ring-1.5 focus-within:ring-[#EB6E3E]/40">
+          {/* 2. กล่องค้นหาสินค้า (ตรงกลาง): เปลี่ยนเป็นเส้นขอบสี stone-300 */}
+          <div className="flex-1 min-w-0 max-w-2xl flex justify-center">
+            <div className="w-full h-9 sm:h-10 flex items-center bg-white rounded-md border border-stone-300 overflow-hidden transition-all focus-within:border-stone-400 focus-within:ring-2 focus-within:ring-[#EB6E3E]/30 shadow-2xs">
               <input
                 type="text"
                 placeholder="ค้นหาชื่อสินค้า หรือรายละเอียดสินค้า..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="flex-1 h-9 sm:h-10 bg-transparent text-sm text-[#2B2F38] placeholder-stone-400 focus:outline-none px-3.5 font-normal"
+                className="flex-1 min-w-0 h-full bg-transparent text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:outline-none px-3 sm:px-4 font-normal"
               />
 
-              {/* ปุ่มแว่นขยายค้นหาสี Deep Charcoal */}
+              {/* ปุ่มแว่นขยายค้นหา สไตล์กล่องรูปแรก: สูงเต็มขอบ ชิดขวา สี Deep Charcoal ของเรา */}
               <button
                 type="button"
                 onClick={submitSearch}
                 disabled={loading}
-                className="bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black text-white px-5 sm:px-7 h-9 sm:h-10 rounded transition-all shrink-0 flex items-center justify-center cursor-pointer active:scale-95 font-medium"
+                className="bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black disabled:opacity-80 text-white px-4 sm:px-6 h-full transition-colors shrink-0 flex items-center justify-center cursor-pointer font-medium text-xs sm:text-sm"
                 title="ค้นหา"
               >
                 <svg
-                  className={'w-4 h-4 text-white ' + (loading ? 'animate-spin' : '')}
+                  className="w-4 h-4 text-white"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -81,8 +82,8 @@ export function SearchHeader() {
             </div>
           </div>
 
-          {/* 3. ปุ่มสั่งล่วงหน้า (Pre-order) & ตะกร้าสินค้า (ด้านขวา) */}
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          {/* 3. ปุ่มสั่งล่วงหน้า (Pre-order 🔖) & ตะกร้าสินค้า (🛒) ด้านขวา - แสดงชัดเจนตลอดเวลาทุกขนาดหน้าจอ */}
+          <div className="flex items-center gap-0.5 sm:gap-3 shrink-0">
             <CartPopover mode="preorder" />
             <CartPopover mode="cart" />
           </div>

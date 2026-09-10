@@ -123,6 +123,32 @@ export const useCartStore = create((set, get) => ({
   },
 
   /**
+   * setLocalQuantity: ปรับจำนวนสินค้าเฉพาะบนหน้าจอ UI ทันที (ยังไม่ยิง API)
+   * ใช้คู่กับ Debounce เพื่อให้หน้าจอลื่นไหลระหว่างที่ผู้ใช้กำลังกดปุ่มรัวๆ
+   * @param {string} cartId - รหัสของแถวในตะกร้า
+   * @param {number} quantity - จำนวนใหม่
+   */
+  setLocalQuantity: (cartId, quantity) => {
+    const currentItems = get().items;
+    const updatedItems = currentItems
+      .map((item) => (item.id === cartId ? { ...item, quantity } : item))
+      .filter((item) => item.quantity > 0);
+
+    // อัปเดต State ในเครื่องทันที คำนวณยอดเงินรวมใหม่สดๆ
+    set({
+      items: updatedItems,
+      summary: {
+        totalItems: updatedItems.length,
+        totalQuantity: updatedItems.reduce((sum, item) => sum + item.quantity, 0),
+        totalPrice: updatedItems.reduce(
+          (sum, item) => sum + (item.product?.product_price || 0) * item.quantity,
+          0
+        ),
+      },
+    });
+  },
+
+  /**
    * removeItem: ลบรายการสินค้าออกจากตะกร้าทีละรายการ
    * @param {string} cartId - รหัส UUID ของรายการในตะกร้า
    */

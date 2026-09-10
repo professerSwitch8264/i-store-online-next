@@ -35,3 +35,71 @@ export function formatPrice(amount) {
     maximumFractionDigits: 2,
   });
 }
+
+/**
+ * จัดรูปแบบวันที่และเวลา (YYYY-MM-DD HH:mm:ss)
+ * ป้องกันปัญหา Timezone Offset ซ้ำซ้อน (+7 ซ้ำ) จากฐานข้อมูล SQL Server
+ */
+export function formatDateTime(dateVal) {
+  if (!dateVal) return '-';
+
+  if (typeof dateVal === 'string') {
+    if (dateVal.includes('T') || dateVal.endsWith('Z')) {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return '-';
+      const pad = (n) => n.toString().padStart(2, '0');
+      const year = d.getUTCFullYear();
+      const month = pad(d.getUTCMonth() + 1);
+      const day = pad(d.getUTCDate());
+      const hours = pad(d.getUTCHours());
+      const minutes = pad(d.getUTCMinutes());
+      const seconds = pad(d.getUTCSeconds());
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+  }
+
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return '-';
+  const pad = (n) => n.toString().padStart(2, '0');
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  const seconds = pad(d.getSeconds());
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * จัดรูปแบบวันที่และเวลาเป็นภาษาไทย พ.ศ. (เช่น 05 ก.ย. 2569 · 12:42)
+ * ป้องกันปัญหา Timezone Offset ซ้ำซ้อน (+7 ซ้ำ) จากฐานข้อมูล SQL Server
+ */
+export function formatThaiDateTime(dateVal) {
+  if (!dateVal) return '-';
+  const thaiMonths = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+  ];
+
+  const pad = (n) => n.toString().padStart(2, '0');
+
+  if (typeof dateVal === 'string' && (dateVal.includes('T') || dateVal.endsWith('Z'))) {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '-';
+    const year = d.getUTCFullYear() + 543;
+    const month = thaiMonths[d.getUTCMonth()] || '';
+    const day = pad(d.getUTCDate());
+    const hours = pad(d.getUTCHours());
+    const minutes = pad(d.getUTCMinutes());
+    return `${day} ${month} ${year} · ${hours}:${minutes}`;
+  }
+
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return '-';
+  const year = d.getFullYear() + 543;
+  const month = thaiMonths[d.getMonth()] || '';
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  return `${day} ${month} ${year} · ${hours}:${minutes}`;
+}

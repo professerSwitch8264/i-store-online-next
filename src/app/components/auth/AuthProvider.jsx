@@ -74,7 +74,6 @@ export const AuthProvider = ({ children }) => {
 
     // สร้าง Keycloak Instance เฉพาะใน Client
     const kc = new Keycloak(keycloakConfig);
-    console.log('Keycloak instance created:', kc);
 
     // ฟังก์ชันเริ่มต้นการทำงานของ Keycloak
     const initializeKeycloak = async () => {
@@ -288,7 +287,7 @@ export const AuthProvider = ({ children }) => {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-4">
-          <div className="relative w-20 h-20 animate-pulse">
+          <div className="relative w-40 h-40 animate-pulse">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/iStore.png"

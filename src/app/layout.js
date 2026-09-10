@@ -6,7 +6,7 @@ import { ToastModal } from '@/app/components/ui/ToastModal';
 import './globals.css';
 
 export const metadata = {
-  title: 'i-Store Online',
+  title: 'i-Store: online platform',
   description: 'ระบบเบิกสินค้าออนไลน์',
 };
 

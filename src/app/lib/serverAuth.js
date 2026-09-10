@@ -32,7 +32,6 @@ function validateJwt(token) {
 // 2. ฟังก์ชัน Guard สำหรับเรียกใช้ในทุกๆ API
 export async function verifyApiAuth(request) {
   // 2.1 ดึง Token จาก Header Authorization: Bearer <token>
-  console.log('request = ', request);
   let token = null;
   const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -91,21 +90,25 @@ export async function verifyApiAuth(request) {
       .input('username', sql.NVarChar, username)
       .query('SELECT username FROM admins WHERE username = @username');
     const isAdmin = adminRes.recordset.length > 0;
-    console.log(`User ${username} isAdmin: ${isAdmin}`);
 
     // เช็คร้านค้าส่วนตัวที่คนนี้มีสิทธิ์เข้าถึง (ตาราง customers)
     const customerRes = await pool.request()
       .input('custUser', sql.NVarChar, username)
       .query('SELECT store_id FROM customers WHERE username = @custUser');
     const allowedPrivateStoreIds = customerRes.recordset.map((r) => r.store_id);
-    console.log(`User ${username} allowedPrivateStoreIds: ${allowedPrivateStoreIds.join(', ')}`);
 
     // เช็คร้านค้าที่คนนี้เป็นเจ้าของ (ตาราง owners)
     const ownerRes = await pool.request()
       .input('ownerUser', sql.NVarChar, username)
       .query('SELECT store_id FROM owners WHERE username = @ownerUser');
     const ownedStoreIds = ownerRes.recordset.map((r) => r.store_id);
-    console.log(`User ${username} ownedStoreIds: ${ownedStoreIds.join(', ')}`);
+
+    // เช็คสิทธิ์ Approver (ตาราง order_approvers)
+    const approverRes = await pool.request()
+      .input('approverUser', sql.NVarChar, username)
+      .query('SELECT department_code FROM order_approvers WHERE username = @approverUser');
+    const approverDepartmentCodes = approverRes.recordset.map((r) => r.department_code).filter(Boolean);
+    const isApprover = approverDepartmentCodes.length > 0;
 
     return {
       authenticated: true,
@@ -113,6 +116,8 @@ export async function verifyApiAuth(request) {
         username,
         ...payload,
         isAdmin,
+        isApprover,
+        approverDepartmentCodes,
         allowedPrivateStoreIds,
         ownedStoreIds,
       },
@@ -127,6 +132,8 @@ export async function verifyApiAuth(request) {
         name: payload.name || username,
         email: payload.email || '',
         isAdmin: false,
+        isApprover: false,
+        approverDepartmentCodes: [],
         allowedPrivateStoreIds: [],
         ownedStoreIds: [],
       },
