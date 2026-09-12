@@ -29,6 +29,7 @@ import { AccountSidebar } from '@/app/components/layout/AccountSidebar';
 import { getThumbnailUrl, formatThaiDateTime } from '@/app/lib/utils';
 import { useOrderStore, ORDER_TABS, CANCEL_REASONS } from '@/app/stores/useOrderStore';
 import { useToastStore } from '@/app/stores/useToastStore';
+import { OrderSearchBox } from '@/app/components/orders/OrderSearchBox';
 import { MdViewKanban } from 'react-icons/md';
 import {
   RiImageLine,
@@ -36,6 +37,9 @@ import {
   RiCloseLine,
   RiArrowGoBackLine,
   RiCloseCircleLine,
+  RiShieldCheckLine,
+  RiBox3Line,
+  RiTimeLine,
 } from 'react-icons/ri';
 
 /**
@@ -84,6 +88,11 @@ export default function OrdersPage() {
     tabCounts,
     searchInput,
     appliedSearch,
+    isDetailOpen,
+    setIsDetailOpen,
+    appliedDetailFilters,
+    applyDetailSearch,
+    clearDetailSearch,
     sortBy,
     sortOrder,
     selectedOrderForModal,
@@ -113,7 +122,7 @@ export default function OrdersPage() {
   // โหลดรายการคำสั่งซื้อครั้งแรกและเมื่อตัวกรองเปลี่ยน
   useEffect(() => {
     fetchOrders(token);
-  }, [fetchOrders, token, page, rowsPerPage, selectedTab, appliedSearch, sortBy, sortOrder]);
+  }, [fetchOrders, token, page, rowsPerPage, selectedTab, appliedSearch, appliedDetailFilters, sortBy, sortOrder]);
 
   const triggerRefresh = () => {
     fetchOrders(token);
@@ -339,7 +348,7 @@ export default function OrdersPage() {
             {/* ─────────────────────────────────────────────────────────────
                 ส่วนที่ 1: หัวข้อหน้า และปุ่มเบิกสินค้า (Pinned Header)
                 ───────────────────────────────────────────────────────────── */}
-            <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white">
+            <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white">
               <div>
                 <h1 className="text-base sm:text-lg font-bold text-[#2B2F38]">
                   คำสั่งซื้อของฉัน
@@ -421,53 +430,20 @@ export default function OrdersPage() {
                 })}
               </div>
 
-              {/* ช่องค้นหา Joined Input Group เชื่อมชิดกับปุ่มค้นหา */}
-              <form onSubmit={handleSearchSubmit} className="flex w-full">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder="ค้นหาหมายเลขใบสั่งซื้อ..."
-                    className="w-full pl-3.5 pr-9 py-2 bg-white border border-r-0 border-stone-300 rounded-l-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#EB6E3E]/40 focus:outline-none transition-colors"
-                  />
-
-                  {searchInput && (
-                    <button
-                      type="button"
-                      onClick={handleClearSearch}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-[#2B2F38] cursor-pointer"
-                      title="ล้างคำค้นหา"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-5 sm:px-6 py-2 bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black disabled:opacity-80 text-white text-xs sm:text-sm font-medium rounded-r-md transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0 border border-[#2B2F38]"
-                  title="ค้นหา"
-                >
-                  <svg
-                    className="w-4 h-4 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.4}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                  <span>ค้นหา</span>
-                </button>
-              </form>
+              {/* กล่องค้นหา พร้อมปุ่มค้นหา และปุ่ม Search Detail (3 ขีด) */}
+              <OrderSearchBox
+                searchInput={searchInput}
+                onSearchInputChange={setSearchInput}
+                onSearchSubmit={handleSearchSubmit}
+                onSearchClear={handleClearSearch}
+                placeholder="ค้นหาหมายเลขใบสั่งซื้อ..."
+                isDetailOpen={isDetailOpen}
+                setIsDetailOpen={setIsDetailOpen}
+                appliedDetailFilters={appliedDetailFilters}
+                onApplyDetail={(filters) => applyDetailSearch(filters, token)}
+                onClearDetail={() => clearDetailSearch(token)}
+                loading={loading}
+              />
             </div>
 
             {/* ─────────────────────────────────────────────────────────────
@@ -765,7 +741,7 @@ export default function OrdersPage() {
           ───────────────────────────────────────────────────────────── */}
       {selectedOrderForModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-fadeIn">
-          <div className="bg-white rounded-lg shadow-2xl border border-stone-300 max-w-2xl w-full max-h-[90vh] flex flex-col font-sans overflow-hidden">
+          <div className="bg-white rounded-xs shadow-2xl border border-stone-300 max-w-2xl w-full max-h-[90vh] flex flex-col font-sans overflow-hidden">
             {/* Header Modal */}
             <div className="px-6 py-4 border-b border-[#D3D3D3] bg-white flex items-center justify-between gap-4 shrink-0">
               <div>
@@ -786,7 +762,7 @@ export default function OrdersPage() {
             {/* Body Modal */}
             <div className="p-6 space-y-4 text-xs sm:text-sm flex flex-col flex-1 min-h-0 overflow-hidden">
               {/* ข้อมูลสรุป 6 ช่อง */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-stone-50 rounded-lg border border-stone-200 shrink-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-stone-50 rounded-xs border border-stone-200 shrink-0">
                 <div>
                   <span className="text-xs text-[#363636]/60 block font-normal">ร้านค้า</span>
                   <span className="text-xs font-medium text-[#363636]">{selectedOrderForModal.store_name}</span>
@@ -854,7 +830,7 @@ export default function OrdersPage() {
                     {modalItems.length} รายการ
                   </span>
                 </div>
-                <div className="border border-[#D3D3D3] rounded-lg overflow-x-auto overflow-y-auto flex-1 min-h-0">
+                <div className="border border-[#D3D3D3] rounded-xs overflow-x-auto overflow-y-auto flex-1 min-h-0">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-stone-100 border-b border-[#D3D3D3] text-[11px] font-normal text-[#363636]/70 sticky top-0 z-10 shadow-2xs">
                       <tr>
@@ -999,36 +975,84 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              {/* ข้อมูลการปฏิเสธหรือยกเลิกคำสั่งซื้อ (Activity Log Style) */}
-              {selectedOrderForModal.remark && (
-                <div className="p-3.5 bg-stone-50 rounded-lg border border-stone-200 shrink-0 mt-3 space-y-1.5 text-xs font-sans">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-stone-900">
-                      <span className="font-semibold">
-                        {selectedOrderForModal.response_by_name || selectedOrderForModal.response_by || 'ผู้ดำเนินการ'}
-                      </span>{' '}
-                      <span className="font-normal text-stone-500">
-                        -
-                      </span>{' '}
-                      <span className="font-normal text-stone-700">
-                        {selectedOrderForModal.status === 'R'
-                          ? 'ปฏิเสธคำขอ'
-                          : selectedOrderForModal.status === 'C'
-                          ? 'ยกเลิกคำขอ'
-                          : 'บันทึกหมายเหตุ'}
-                      </span>
+              {/* รายการประวัติการดำเนินงาน (Activity History Trail) */}
+              {((selectedOrderForModal.approved_by_name || selectedOrderForModal.approved_by) ||
+                (selectedOrderForModal.prepared_by_name || selectedOrderForModal.prepared_by) ||
+                ['R', 'C'].includes(selectedOrderForModal.status) ||
+                selectedOrderForModal.remark) && (
+                <div className="space-y-2 mt-3 shrink-0">
+                  {/* 1. ประวัติการอนุมัติคำสั่งซื้อ */}
+                  {(selectedOrderForModal.approved_by_name || selectedOrderForModal.approved_by) && (
+                    <div className="p-3.5 bg-stone-50 rounded-xs border border-stone-200 space-y-1.5 text-xs font-sans">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-stone-900">
+                          <span className="font-semibold">
+                            {selectedOrderForModal.approved_by_name || selectedOrderForModal.approved_by}
+                          </span>{' '}
+                          <span className="font-normal text-stone-500">-</span>{' '}
+                          <span className="font-normal text-stone-700">อนุมัติคำสั่งซื้อ</span>
+                        </div>
+                        {selectedOrderForModal.approved_date && (
+                          <span className="text-stone-500 font-normal shrink-0 text-[11px] sm:text-xs">
+                            {formatThaiDateTime(selectedOrderForModal.approved_date)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-stone-500 font-normal shrink-0 text-[11px] sm:text-xs">
-                      {formatThaiDateTime(selectedOrderForModal.response_date)}
-                    </span>
-                  </div>
+                  )}
 
-                  <div className="flex items-start gap-1.5 text-stone-700 font-normal">
-                    <RiChat1Line className="w-4 h-4 mt-0.5 shrink-0 text-stone-500" />
-                    <span className="break-words leading-relaxed text-stone-900">
-                      {(selectedOrderForModal.remark || '').replace(/^(Rejected|Cancelled):\s*/i, '')}
-                    </span>
-                  </div>
+                  {/* 2. ประวัติการจัดเตรียมสินค้า */}
+                  {(selectedOrderForModal.prepared_by_name || selectedOrderForModal.prepared_by) && (
+                    <div className="p-3.5 bg-stone-50 rounded-xs border border-stone-200 space-y-1.5 text-xs font-sans">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-stone-900">
+                          <span className="font-semibold">
+                            {selectedOrderForModal.prepared_by_name || selectedOrderForModal.prepared_by}
+                          </span>{' '}
+                          <span className="font-normal text-stone-500">-</span>{' '}
+                          <span className="font-normal text-stone-700">จัดเตรียมสินค้า</span>
+                        </div>
+                        {selectedOrderForModal.prepared_date && (
+                          <span className="text-stone-500 font-normal shrink-0 text-[11px] sm:text-xs">
+                            {formatThaiDateTime(selectedOrderForModal.prepared_date)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. ประวัติการปฏิเสธหรือยกเลิกคำสั่งซื้อ */}
+                  {(['R', 'C'].includes(selectedOrderForModal.status) || selectedOrderForModal.remark) && (
+                    <div className="p-3.5 bg-stone-50 rounded-xs border border-stone-200 space-y-1.5 text-xs font-sans">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-stone-900">
+                          <span className="font-semibold">
+                            {selectedOrderForModal.response_by_name || selectedOrderForModal.response_by || 'ผู้ดำเนินการ'}
+                          </span>{' '}
+                          <span className="font-normal text-stone-500">-</span>{' '}
+                          <span className="font-normal text-stone-700">
+                            {selectedOrderForModal.status === 'R'
+                              ? 'ปฏิเสธคำขอ'
+                              : selectedOrderForModal.status === 'C'
+                              ? 'ยกเลิกคำขอ'
+                              : 'บันทึกหมายเหตุ'}
+                          </span>
+                        </div>
+                        <span className="text-stone-500 font-normal shrink-0 text-[11px] sm:text-xs">
+                          {formatThaiDateTime(selectedOrderForModal.response_date)}
+                        </span>
+                      </div>
+
+                      {selectedOrderForModal.remark && (
+                        <div className="flex items-start gap-1.5 text-stone-700 font-normal">
+                          <RiChat1Line className="w-4 h-4 mt-0.5 shrink-0 text-stone-500" />
+                          <span className="break-words leading-relaxed text-stone-900">
+                            {(selectedOrderForModal.remark || '').replace(/^(Rejected|Cancelled):\s*/i, '')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1070,7 +1094,7 @@ export default function OrdersPage() {
           ───────────────────────────────────────────────────────────── */}
       {showCancelModal && selectedOrderForModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 animate-fadeIn">
-          <div className="bg-white rounded-lg shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4 font-sans">
+          <div className="bg-white rounded-xs shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4 font-sans">
             <div>
               <h4 className="text-sm font-bold text-stone-800">
                 ยืนยันการยกเลิกคำสั่งซื้อ

@@ -11,6 +11,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/components/auth/AuthProvider';
 import { useOrderStore } from '@/app/stores/useOrderStore';
+import { useProfileStore } from '@/app/stores/useProfileStore';
+import { getProfileUrl } from '@/app/lib/utils';
 import {
   RiUser3Line,
   RiFileList3Line,
@@ -23,17 +25,30 @@ export default function Navbar() {
   const { userInfo, logout } = useAuth();
 
   const { pendingCount, fetchPendingCount } = useOrderStore();
+  const { profileImage, fetchProfileImage, setProfileImage } = useProfileStore();
   const pathname = usePathname();
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [imgErrorTop, setImgErrorTop] = useState(false);
+  const [imgErrorDropdown, setImgErrorDropdown] = useState(false);
   const userMenuRef = useRef(null);
 
-  // โหลดจำนวนคำขออนุมัติเมื่อล็อกอิน
+  // ดึงรูปโปรไฟล์และจำนวนคำขออนุมัติเมื่อล็อกอิน
   useEffect(() => {
+    if (userInfo?.info?.image && !profileImage) {
+      setProfileImage(userInfo.info.image);
+    }
     if (userInfo?.securityToken) {
       fetchPendingCount(userInfo.securityToken);
+      fetchProfileImage(userInfo.securityToken);
     }
-  }, [userInfo?.securityToken, fetchPendingCount]);
+  }, [userInfo?.securityToken, userInfo?.info?.image, fetchPendingCount, fetchProfileImage, setProfileImage, profileImage]);
+
+  // รีเซ็ต error เมื่อ profileImage เปลี่ยน
+  useEffect(() => {
+    setImgErrorTop(false);
+    setImgErrorDropdown(false);
+  }, [profileImage]);
 
   // ตรวจสอบแท็บที่กำลังเปิดอยู่ตาม URL Pathname
   const isRequisition =
@@ -92,10 +107,19 @@ export default function Navbar() {
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex items-center gap-1.5 sm:gap-2 text-stone-700 hover:text-[#2B2F38] transition-colors cursor-pointer text-left py-0.5"
             >
-              <div className="w-5.5 h-5.5 rounded-full bg-[#2B2F38] text-white flex items-center justify-center text-[10px] font-bold uppercase shadow-2xs shrink-0">
-                <span>
-                  {(userInfo?.info?.firstname?.charAt(0) || userInfo?.info?.username?.charAt(0) || 'U').toUpperCase()}
-                </span>
+              <div className="w-5.5 h-5.5 rounded-full bg-[#2B2F38] text-white flex items-center justify-center text-[10px] font-bold uppercase shadow-2xs shrink-0 overflow-hidden">
+                {profileImage && !imgErrorTop ? (
+                  <img
+                    src={getProfileUrl(profileImage)}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    onError={() => setImgErrorTop(true)}
+                  />
+                ) : (
+                  <span>
+                    {(userInfo?.info?.firstname?.charAt(0) || userInfo?.info?.username?.charAt(0) || 'U').toUpperCase()}
+                  </span>
+                )}
               </div>
               <span className="font-medium text-xs text-stone-900 hidden sm:inline max-w-[130px] lg:max-w-none truncate">
                 {userInfo?.info?.fullnameTH ||
@@ -118,10 +142,19 @@ export default function Navbar() {
                 <div className="bg-white rounded-lg shadow-xl border border-stone-200 p-2 text-xs text-stone-800">
                   <div className="px-2.5 py-2 border-b border-stone-100 mb-1 flex items-center gap-2.5">
                     {/* วงกลมโปรไฟล์ Avatar ด้านหน้า */}
-                    <div className="w-8 h-8 rounded-full bg-[#2B2F38] text-white flex items-center justify-center text-xs font-bold uppercase shadow-2xs shrink-0">
-                      <span>
-                        {(userInfo?.info?.firstname?.charAt(0) || userInfo?.info?.username?.charAt(0) || 'U').toUpperCase()}
-                      </span>
+                    <div className="w-8 h-8 rounded-full bg-[#2B2F38] text-white flex items-center justify-center text-xs font-bold uppercase shadow-2xs shrink-0 overflow-hidden">
+                      {profileImage && !imgErrorDropdown ? (
+                        <img
+                          src={getProfileUrl(profileImage)}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                          onError={() => setImgErrorDropdown(true)}
+                        />
+                      ) : (
+                        <span>
+                          {(userInfo?.info?.firstname?.charAt(0) || userInfo?.info?.username?.charAt(0) || 'U').toUpperCase()}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex-1 min-w-0">

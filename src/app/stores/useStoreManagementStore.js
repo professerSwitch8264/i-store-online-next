@@ -91,6 +91,46 @@ export const useStoreManagementStore = create(
           return [];
         }
       },
+
+      // อัปเดตข้อมูลร้านค้า (ยิง PUT /api/stores และอัปเดต state ทันที)
+      updateStoreInfo: async (token, storeData) => {
+        set({ loading: true, error: null });
+        try {
+          const headers = { 'Content-Type': 'application/json' };
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+
+          const res = await fetch('/api/stores', {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(storeData),
+          });
+          const json = await res.json();
+
+          if (!res.ok || !json.success) {
+            throw new Error(json.error || 'เกิดข้อผิดพลาดในการบันทึกข้อมูลร้านค้า');
+          }
+
+          const updatedStore = json.data;
+
+          // อัปเดตใน stores list และ currentStore
+          const currentStores = get().stores;
+          const newStores = currentStores.map((s) =>
+            s.store_id === updatedStore.store_id ? { ...s, ...updatedStore } : s
+          );
+
+          set({
+            stores: newStores,
+            currentStore: updatedStore,
+            loading: false,
+          });
+
+          return { success: true, data: updatedStore };
+        } catch (err) {
+          console.error('updateStoreInfo error:', err);
+          set({ error: err.message, loading: false });
+          throw err;
+        }
+      },
     }),
     {
       name: 'istore_management_store',

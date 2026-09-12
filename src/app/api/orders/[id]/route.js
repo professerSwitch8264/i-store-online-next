@@ -81,7 +81,7 @@ export async function GET(request, { params }) {
       LEFT JOIN v_inventory inv ON vo.product_id = inv.product_id
       LEFT JOIN products p ON vo.product_id = p.product_id
       LEFT JOIN locations loc ON p.location_id = loc.location_id
-      WHERE vo.order_id = @searchId OR vo.order_no = @searchId
+      WHERE CAST(vo.order_id AS NVARCHAR(50)) = @searchId OR vo.order_no = @searchId
       ORDER BY vo.order_date DESC, vo.product_name ASC, vo.price ASC
     `);
 
@@ -113,7 +113,7 @@ export async function GET(request, { params }) {
     const approvalReq = pool.request();
     approvalReq.input('orderId', sql.UniqueIdentifier, firstRow.order_id);
     const approvalRecord = await approvalReq.query(`
-      SELECT TOP 1 approvers, status, response_date
+      SELECT TOP 1 approvers, status, response_date, response_by
       FROM order_approvals
       WHERE order_id = @orderId
     `);
@@ -122,6 +122,53 @@ export async function GET(request, { params }) {
     const approvers = approverRow?.approvers
       ? approverRow.approvers.split(',').map((u) => u.trim()).filter(Boolean)
       : [];
+
+    // 3.0 ดึงข้อมูล update_by, update_date, remark เพิ่มเติมจากตาราง orders
+    const ordReq = pool.request();
+    ordReq.input('orderId', sql.UniqueIdentifier, firstRow.order_id);
+    const ordRecord = await ordReq.query(`
+      SELECT TOP 1 update_by, update_date, remark, status
+      FROM orders
+      WHERE order_id = @orderId
+    `);
+    const ordHeader = ordRecord.recordset[0] || {};
+
+    // 3.0.1 ดึงชื่อ-นามสกุลภาษาไทยของผู้เกี่ยวข้อง (ผู้อนุมัติ และ ผู้จัดเตรียม) จาก _accounts
+    const userFullnameMap = {};
+    const usersToFetch = Array.from(
+      new Set(
+        [approverRow?.response_by, ordHeader?.update_by]
+          .map((u) => (u || '').trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (usersToFetch.length > 0) {
+      try {
+        const uReq = pool.request();
+        const uParams = [];
+        usersToFetch.forEach((u, idx) => {
+          const pName = `u_${idx}`;
+          uReq.input(pName, sql.NVarChar, u);
+          uParams.push(`@${pName}`);
+        });
+        const uRes = await uReq.query(`
+          SELECT username, firstname_th, lastname_th, firstname, lastname
+          FROM _accounts
+          WHERE username IN (${uParams.join(', ')})
+        `);
+        (uRes.recordset || []).forEach((acc) => {
+          const th = `${acc.firstname_th || ''} ${acc.lastname_th || ''}`.trim();
+          const en = `${acc.firstname || ''} ${acc.lastname || ''}`.trim();
+          const name = th || en || acc.username;
+          userFullnameMap[acc.username] = name;
+          userFullnameMap[acc.username.toUpperCase()] = name;
+          userFullnameMap[acc.username.toLowerCase()] = name;
+        });
+      } catch (uErr) {
+        console.warn('Cannot fetch user names in /api/orders/[id]:', uErr);
+      }
+    }
 
     // 3.1 ดึงรายการคืนสต็อกและของเสียจาก inventory_transaction
     const txReq = pool.request();
@@ -269,6 +316,21 @@ export async function GET(request, { params }) {
 
     totalItems = items.length;
 
+    const currentStatus = (firstRow.status || 'W').toUpperCase();
+    const isApprovedOrder = (approverRow?.status || '').toUpperCase() === 'A' || ['X', 'S', 'D'].includes(currentStatus);
+    const approvedBy = isApprovedOrder ? (approverRow?.response_by || '').trim() || null : null;
+    const approvedByName = approvedBy
+      ? (userFullnameMap[approvedBy] || userFullnameMap[approvedBy.toUpperCase()] || userFullnameMap[approvedBy.toLowerCase()] || approvedBy)
+      : null;
+    const approvedDate = isApprovedOrder ? (approverRow?.response_date || null) : null;
+
+    const isPreparedOrder = ['S', 'D'].includes(currentStatus);
+    const preparedBy = isPreparedOrder ? (ordHeader?.update_by || '').trim() || null : null;
+    const preparedByName = preparedBy
+      ? (userFullnameMap[preparedBy] || userFullnameMap[preparedBy.toUpperCase()] || userFullnameMap[preparedBy.toLowerCase()] || preparedBy)
+      : null;
+    const preparedDate = isPreparedOrder ? (ordHeader?.update_date || null) : null;
+
     const data = {
       order_id: firstRow.order_id,
       order_no: firstRow.order_no,
@@ -284,7 +346,17 @@ export async function GET(request, { params }) {
       shipping_location: firstRow.shipping_location || '-',
       reserve_flag: firstRow.reserve_flag || 'N',
       status: firstRow.status || 'W',
-      update_date: firstRow.update_date,
+      remark: ordHeader?.remark || null,
+      approved_by: approvedBy,
+      approved_by_name: approvedByName,
+      approved_date: approvedDate,
+      prepared_by: preparedBy,
+      prepared_by_name: preparedByName,
+      prepared_date: preparedDate,
+      response_by: approverRow?.response_by || ordHeader?.update_by || null,
+      response_by_name: approvedByName || preparedByName || null,
+      response_date: approverRow?.response_date || ordHeader?.update_date || null,
+      update_date: ordHeader?.update_date || firstRow.update_date,
       approvers,
       total_items: totalItems,
       total_quantity: totalQuantity,

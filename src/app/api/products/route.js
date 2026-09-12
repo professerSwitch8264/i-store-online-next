@@ -58,21 +58,27 @@ export async function GET(request) {
       WHERE p.status = 'Y'
     `;
 
-    // 4. กรองสิทธิ์ร้านค้า (Public + Private เฉพาะที่มีในตาราง customers)
-    if (allowedPrivateStoreIds.length > 0) {
-      const storePlaceholders = allowedPrivateStoreIds.map((id, index) => {
-        const paramName = `store_${index}`;
-        req.input(paramName, id);
-        return `@${paramName}`;
-      });
+    // 4. กรองสิทธิ์ร้านค้า (Public + Private เฉพาะที่มีในตาราง customers หรือเป็นเจ้าของร้าน/Admin)
+    if (!currentUser.isAdmin) {
+      const accessibleStoreIds = Array.from(
+        new Set([...allowedPrivateStoreIds, ...(currentUser.ownedStoreIds || [])])
+      );
 
-      query += ` AND (
-        s.store_access = 'public' 
-        OR s.store_access IS NULL 
-        OR p.store_id IN (${storePlaceholders.join(', ')})
-      )`;
-    } else {
-      query += ` AND (s.store_access = 'public' OR s.store_access IS NULL)`;
+      if (accessibleStoreIds.length > 0) {
+        const storePlaceholders = accessibleStoreIds.map((id, index) => {
+          const paramName = `store_${index}`;
+          req.input(paramName, id);
+          return `@${paramName}`;
+        });
+
+        query += ` AND (
+          s.store_access = 'public' 
+          OR s.store_access IS NULL 
+          OR p.store_id IN (${storePlaceholders.join(', ')})
+        )`;
+      } else {
+        query += ` AND (s.store_access = 'public' OR s.store_access IS NULL)`;
+      }
     }
 
     // 5. ตัวกรองค้นหา (รองรับหลายคำคั่นด้วย comma เช่น "มาม่า,ต้มยำ")

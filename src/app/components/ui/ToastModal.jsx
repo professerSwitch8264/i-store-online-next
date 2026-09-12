@@ -47,7 +47,7 @@ export function ToastModal() {
           ───────────────────────────────────────────────────────────── */}
       {successVisible && (
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
-          <div className="bg-black/95 text-white rounded-lg p-6 sm:p-7 shadow-2xl flex flex-col items-center gap-3.5 max-w-xs w-full animate-scale pointer-events-auto border border-white/20">
+          <div className="bg-black/95 text-white rounded-xs p-6 sm:p-7 shadow-2xl flex flex-col items-center gap-3.5 max-w-xs w-full animate-scale pointer-events-auto border border-white/20">
             {/* วงกลมสีขาวไอคอนเครื่องหมายถูกสีดำ */}
             <div className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-md">
               <svg
@@ -78,7 +78,7 @@ export function ToastModal() {
           ───────────────────────────────────────────────────────────── */}
       {errorVisible && (
         <div data-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fadeIn">
-          <div className="bg-white rounded-lg shadow-2xl p-6 sm:p-8 max-w-sm w-full mx-auto flex flex-col items-center text-center gap-6 border border-stone-200 animate-scale">
+          <div className="bg-white rounded-xs shadow-2xl p-6 sm:p-8 max-w-sm w-full mx-auto flex flex-col items-center text-center gap-6 border border-stone-200 animate-scale">
             {/* ข้อความแจ้งเตือน */}
             <p className="text-sm sm:text-base font-semibold text-black leading-relaxed pt-2">
               {errorMessage}
@@ -103,7 +103,7 @@ export function ToastModal() {
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
-              <span>CLOSE</span>
+              <span>ปิด</span>
             </button>
           </div>
         </div>
@@ -114,7 +114,7 @@ export function ToastModal() {
           ───────────────────────────────────────────────────────────── */}
       {confirmVisible && confirmConfig && (
         <div data-modal="true" className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 animate-fadeIn">
-          <div className="bg-white rounded-lg shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4 font-sans animate-scale">
+          <div className="bg-white rounded-xs shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4 font-sans animate-scale">
             <div>
               <h4 className="text-sm font-bold text-stone-800">
                 {confirmConfig.title || 'ยืนยันการทำรายการ'}
@@ -128,19 +128,19 @@ export function ToastModal() {
               <button
                 type="button"
                 onClick={handleCancelAction}
-                className="px-4 py-2 bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 text-xs font-medium rounded-md transition-colors cursor-pointer"
+                className="px-4 py-2 bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 text-xs font-medium rounded-md transition-colors cursor-pointer shadow-2xs"
               >
                 {confirmConfig.cancelText || 'ยกเลิก'}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmAction}
-                className={`px-4 py-2 text-white text-xs font-medium rounded-md transition-colors shadow-xs cursor-pointer ${
+                className={`px-4 py-2 text-white text-xs font-medium rounded-md transition-colors shadow-2xs cursor-pointer ${
                   confirmConfig.confirmColor === 'green'
-                    ? 'bg-[#2e7d32] hover:bg-[#1b5e20]'
+                    ? 'bg-[#2e7d32] hover:bg-[#1b5e20] active:bg-[#144717]'
                     : confirmConfig.confirmColor === 'dark'
-                    ? 'bg-[#2B2F38] hover:bg-[#1E2229]'
-                    : 'bg-red-600 hover:bg-red-700 active:bg-red-800'
+                    ? 'bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black'
+                    : 'bg-[#d32f2f] hover:bg-[#c62828] active:bg-[#b71c1c]'
                 }`}
               >
                 {confirmConfig.confirmText || 'ยืนยัน'}

@@ -136,6 +136,18 @@ export async function POST(request) {
 
     const ownedStores = storeCheck.recordset || [];
 
+    // 3.3 ดึงรูปโปรไฟล์จากตาราง profile
+    try {
+      const profReq = pool.request();
+      profReq.input('u', sql.NVarChar, cleanUsername);
+      const profRes = await profReq.query('SELECT TOP 1 image FROM profile WHERE username = @u');
+      if (profRes.recordset[0]?.image) {
+        info.image = profRes.recordset[0].image;
+      }
+    } catch (profErr) {
+      console.warn('Cannot query profile image in authenticate:', profErr);
+    }
+
     // 4. ส่งข้อมูลทั้งหมดกลับไปให้ AuthProvider
     return NextResponse.json({
       result: 'OK',

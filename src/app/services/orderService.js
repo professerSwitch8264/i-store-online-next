@@ -23,7 +23,11 @@ export const orderService = {
     if (params.search) urlParams.append('search', params.search);
     if (params.store_id) urlParams.append('store_id', params.store_id);
     if (params.is_store_view) urlParams.append('is_store_view', 'true');
-    if (params.reserve_flag) urlParams.append('reserve_flag', params.reserve_flag);
+    if (params.reserve_flag && params.reserve_flag !== 'ALL') urlParams.append('reserve_flag', params.reserve_flag);
+    if (params.order_no) urlParams.append('order_no', params.order_no);
+    if (params.date_from) urlParams.append('date_from', params.date_from);
+    if (params.date_to) urlParams.append('date_to', params.date_to);
+    if (params.buyer) urlParams.append('buyer', params.buyer);
     if (params.page) urlParams.append('page', params.page.toString());
     if (params.limit) urlParams.append('limit', params.limit.toString());
     if (params.sort_field) urlParams.append('sort_field', params.sort_field);

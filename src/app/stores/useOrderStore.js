@@ -74,6 +74,23 @@ export const useOrderStore = create((set, get) => ({
   searchInput: '',
   appliedSearch: '',
 
+  // ค้นหาละเอียด (Search Detail)
+  isDetailOpen: false,
+  detailFilters: {
+    orderNo: '',
+    dateFrom: '',
+    dateTo: '',
+    buyer: '',
+    reserveFlag: 'ALL',
+  },
+  appliedDetailFilters: {
+    orderNo: '',
+    dateFrom: '',
+    dateTo: '',
+    buyer: '',
+    reserveFlag: 'ALL',
+  },
+
   // การเรียงลำดับ
   sortBy: 'order_date',
   sortOrder: 'desc',
@@ -95,7 +112,7 @@ export const useOrderStore = create((set, get) => ({
 
   // ดึงรายการคำสั่งซื้อตามตัวกรองทั้งหมดใน State
   fetchOrders: async (securityToken) => {
-    const { page, rowsPerPage, selectedTab, appliedSearch, sortBy, sortOrder } = get();
+    const { page, rowsPerPage, selectedTab, appliedSearch, appliedDetailFilters, sortBy, sortOrder } = get();
     set({ loading: true, error: null });
 
     try {
@@ -111,6 +128,14 @@ export const useOrderStore = create((set, get) => ({
           limit: rowsPerPage,
           status: statusParam,
           search: appliedSearch.trim() || undefined,
+          order_no: appliedDetailFilters?.orderNo?.trim() || undefined,
+          date_from: appliedDetailFilters?.dateFrom || undefined,
+          date_to: appliedDetailFilters?.dateTo || undefined,
+          buyer: appliedDetailFilters?.buyer?.trim() || undefined,
+          reserve_flag:
+            appliedDetailFilters?.reserveFlag && appliedDetailFilters.reserveFlag !== 'ALL'
+              ? appliedDetailFilters.reserveFlag
+              : undefined,
           sort_field: sortBy,
           sort_order: sortOrder,
         },
@@ -182,6 +207,47 @@ export const useOrderStore = create((set, get) => ({
 
   clearSearch: (securityToken) => {
     set({ searchInput: '', appliedSearch: '', page: 1 });
+    if (securityToken !== undefined) {
+      get().fetchOrders(securityToken);
+    }
+  },
+
+  // Actions ค้นหาละเอียด (Search Detail Actions)
+  setIsDetailOpen: (val) => set((state) => ({ isDetailOpen: typeof val === 'function' ? val(state.isDetailOpen) : val })),
+
+  setDetailFilters: (filters) =>
+    set((state) => ({
+      detailFilters: typeof filters === 'function' ? filters(state.detailFilters) : { ...state.detailFilters, ...filters },
+    })),
+
+  applyDetailSearch: (filters, securityToken) => {
+    const current = get().detailFilters;
+    const nextFilters = filters ? { ...current, ...filters } : current;
+    set({
+      detailFilters: nextFilters,
+      appliedDetailFilters: { ...nextFilters },
+      page: 1,
+      isDetailOpen: false,
+    });
+    if (securityToken !== undefined) {
+      get().fetchOrders(securityToken);
+    }
+  },
+
+  clearDetailSearch: (securityToken) => {
+    const cleared = {
+      orderNo: '',
+      dateFrom: '',
+      dateTo: '',
+      buyer: '',
+      reserveFlag: 'ALL',
+    };
+    set({
+      detailFilters: cleared,
+      appliedDetailFilters: cleared,
+      page: 1,
+      isDetailOpen: false,
+    });
     if (securityToken !== undefined) {
       get().fetchOrders(securityToken);
     }

@@ -175,7 +175,7 @@ export function ProductCard({ product }) {
           <div>
             {/* หมวดหมู่สินค้า */}
             <div className="mb-0.5">
-              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-stone-100 text-stone-600 border border-stone-200/80 truncate">
+              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] bg-stone-100 text-stone-600 border border-stone-200/80 truncate">
                 {product.category_name || 'ทั่วไป'}
               </span>
             </div>

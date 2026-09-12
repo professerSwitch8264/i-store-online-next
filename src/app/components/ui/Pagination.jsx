@@ -44,7 +44,7 @@ export function Pagination() {
   };
 
   return (
-    <div className="flex items-center justify-center gap-1 sm:gap-1.5 pt-2 sm:pt-2.5 pb-3 sm:pb-4 select-none">
+    <div className="flex items-center justify-center gap-1 sm:gap-1.5 pt-3 sm:pt-4 pb-6 sm:pb-8 select-none">
       {/* ปุ่ม << ไปหน้าแรกสุด */}
       {totalPages > 3 && (
         <button

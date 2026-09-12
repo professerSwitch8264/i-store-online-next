@@ -15,11 +15,13 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/components/auth/AuthProvider';
 import { useOrderStore } from '@/app/stores/useOrderStore';
+import { useProfileStore } from '@/app/stores/useProfileStore';
+import { getProfileUrl } from '@/app/lib/utils';
 import {
   RiUser3Line,
   RiFileList3Line,
@@ -31,14 +33,25 @@ export function AccountSidebar() {
   const pathname = usePathname();
   const { userInfo } = useAuth();
   const { pendingCount, fetchPendingCount } = useOrderStore();
+  const { profileImage, fetchProfileImage, setProfileImage } = useProfileStore();
+  const [imgError, setImgError] = useState(false);
   const info = userInfo?.info;
 
-  // โหลดจำนวนคำขออนุมัติเมื่อล็อกอิน
+  // โหลดจำนวนคำขออนุมัติและรูปโปรไฟล์เมื่อล็อกอิน
   useEffect(() => {
+    if (userInfo?.info?.image && !profileImage) {
+      setProfileImage(userInfo.info.image);
+    }
     if (userInfo?.securityToken) {
       fetchPendingCount(userInfo.securityToken);
+      fetchProfileImage(userInfo.securityToken);
     }
-  }, [userInfo?.securityToken, fetchPendingCount]);
+  }, [userInfo?.securityToken, userInfo?.info?.image, fetchPendingCount, fetchProfileImage, setProfileImage, profileImage]);
+
+  // รีเซ็ต error เมื่อ profileImage มีการเปลี่ยน
+  useEffect(() => {
+    setImgError(false);
+  }, [profileImage]);
 
   const displayName =
     info?.fullnameTH ||
@@ -97,8 +110,17 @@ export function AccountSidebar() {
           ───────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 pb-3.5 mb-3 border-b border-stone-100">
         {/* รูปโปรไฟล์ Avatar ทรงกลม */}
-        <div className="w-11 h-11 rounded-full bg-[#2B2F38] text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0">
-          <span>{avatarChar}</span>
+        <div className="w-11 h-11 rounded-full bg-[#2B2F38] text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0 overflow-hidden">
+          {profileImage && !imgError ? (
+            <img
+              src={getProfileUrl(profileImage)}
+              alt={displayName}
+              className="w-full h-full object-cover"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <span>{avatarChar}</span>
+          )}
         </div>
 
         {/* ชื่อและฝ่าย */}

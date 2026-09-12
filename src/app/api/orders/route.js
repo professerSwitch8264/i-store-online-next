@@ -45,6 +45,10 @@ export async function GET(request) {
     const search = (searchParams.get('search') || '').trim();
     const storeId = (searchParams.get('store_id') || '').trim();
     const reserveFlag = (searchParams.get('reserve_flag') || '').trim();
+    const orderNo = (searchParams.get('order_no') || '').trim();
+    const dateFrom = (searchParams.get('date_from') || '').trim();
+    const dateTo = (searchParams.get('date_to') || '').trim();
+    const buyer = (searchParams.get('buyer') || '').trim();
     const isStoreView = searchParams.get('is_store_view') === 'true' && Boolean(storeId);
 
     // คำนวณหน้าและการแบ่งหน้า (Pagination)
@@ -175,14 +179,60 @@ export async function GET(request) {
       }
     }
 
-    // 4.4 กรองตามประเภทการเบิก (reserve_flag: 'Y' = สั่งจองล่วงหน้า, 'N' = เบิกปกติ)
-    if (reserveFlag) {
+    // 4.3 กรองตามหมายเลขใบสั่งซื้อเฉพาะ (order_no)
+    if (orderNo) {
+      const pName = 'filter_order_no';
+      const pattern = `%${orderNo}%`;
+      countRequest.input(pName, sql.NVarChar, pattern);
+      dataRequest.input(pName, sql.NVarChar, pattern);
+      whereConditions.push(`o.order_no LIKE @${pName}`);
+    }
+
+    // 4.4 กรองตามช่วงวันที่คำสั่งซื้อ (date_from / date_to)
+    if (dateFrom) {
+      const pName = 'filter_date_from';
+      countRequest.input(pName, sql.NVarChar, `${dateFrom} 00:00:00.000`);
+      dataRequest.input(pName, sql.NVarChar, `${dateFrom} 00:00:00.000`);
+      whereConditions.push(`o.order_date >= @${pName}`);
+    }
+    if (dateTo) {
+      const pName = 'filter_date_to';
+      countRequest.input(pName, sql.NVarChar, `${dateTo} 23:59:59.997`);
+      dataRequest.input(pName, sql.NVarChar, `${dateTo} 23:59:59.997`);
+      whereConditions.push(`o.order_date <= @${pName}`);
+    }
+
+    // 4.5 กรองตามผู้สั่งซื้อ (buyer: รหัสผู้ใช้ หรือชื่อ-นามสกุล)
+    if (buyer) {
+      const pName = 'filter_buyer';
+      const pattern = `%${buyer}%`;
+      countRequest.input(pName, sql.NVarChar, pattern);
+      dataRequest.input(pName, sql.NVarChar, pattern);
+      whereConditions.push(`(
+        o.owner LIKE @${pName}
+        OR EXISTS (
+          SELECT 1 FROM _accounts acc 
+          WHERE acc.username = o.owner 
+            AND (
+              acc.firstname_th LIKE @${pName}
+              OR acc.lastname_th LIKE @${pName}
+              OR (acc.firstname_th + ' ' + acc.lastname_th) LIKE @${pName}
+              OR acc.firstname LIKE @${pName}
+              OR acc.lastname LIKE @${pName}
+              OR (acc.firstname + ' ' + acc.lastname) LIKE @${pName}
+            )
+        )
+      )`);
+    }
+
+    // 4.6 กรองตามประเภทการเบิก (reserve_flag: 'Y' = สั่งจองล่วงหน้า, 'N' = เบิกปกติ)
+    if (reserveFlag && reserveFlag !== 'ALL') {
       countRequest.input('reserve_flag', sql.NVarChar, reserveFlag);
       dataRequest.input('reserve_flag', sql.NVarChar, reserveFlag);
       whereConditions.push(`o.reserve_flag = @reserve_flag`);
     }
 
-    // 4.5 กรองตามคำค้นหา (ค้นหาตามหมายเลขคำสั่งซื้อ, หมายเหตุ, หรือชื่อสินค้า)
+    // 4.7 กรองตามคำค้นหา (ค้นหาตามหมายเลขคำสั่งซื้อ, หมายเหตุ, หรือชื่อสินค้า)
     if (search) {
       const keywords = search.split(/[,\s]+/).map((k) => k.trim()).filter(Boolean);
       keywords.forEach((kw, idx) => {
@@ -216,7 +266,7 @@ export async function GET(request) {
       }
       if (storeId) countWhereConditions.push('o.store_id = @store_id');
     }
-    if (reserveFlag) countWhereConditions.push('o.reserve_flag = @reserve_flag');
+    if (reserveFlag && reserveFlag !== 'ALL') countWhereConditions.push('o.reserve_flag = @reserve_flag');
 
     const countWhereSql = countWhereConditions.length > 0 ? `WHERE ${countWhereConditions.join(' AND ')}` : '';
 
@@ -397,7 +447,7 @@ export async function GET(request) {
           ORDER BY vo.order_date DESC, vo.product_name ASC, vo.price ASC
         `),
         approvalRequest.query(`
-          SELECT order_id, approvers, response_by, response_date
+          SELECT order_id, approvers, response_by, response_date, status
           FROM order_approvals
           WHERE order_id IN (${orderIdParams.join(', ')})
         `),
@@ -458,15 +508,16 @@ export async function GET(request) {
         }
       });
 
-      // ดึงรายชื่อผู้ดำเนินการเพื่อค้นหาชื่อ-นามสกุลภาษาไทยจาก _accounts
+      // ดึงรายชื่อผู้ดำเนินการเพื่อค้นหาชื่อ-นามสกุลภาษาไทยจาก _accounts (ทั้งผู้อนุมัติ และผู้จัดเตรียม)
       const responseUsernames = Array.from(
         new Set(
           paginatedOrderHeaders
-            .map((ord) => {
+            .flatMap((ord) => {
               const idStr = String(ord.order_id);
               const app = appInfoMap[idStr] || appInfoMap[idStr.toUpperCase()] || appInfoMap[idStr.toLowerCase()];
-              return (app?.response_by || ord.update_by || '').trim();
+              return [app?.response_by, ord.update_by];
             })
+            .map((u) => (u || '').trim())
             .filter(Boolean)
         )
       );
@@ -514,6 +565,22 @@ export async function GET(request) {
       const respDate = appInfo?.response_date || ord.update_date || null;
       const respByName = respBy ? (userFullnameMap[respBy] || userFullnameMap[respBy.toUpperCase()] || userFullnameMap[respBy.toLowerCase()] || null) : null;
 
+      // ข้อมูลผู้อนุมัติคำสั่งซื้อ (Approver): กรณีผ่านการอนุมัติแล้ว (สถานะเป็น X, S, D หรือ order_approvals.status = 'A')
+      const isApprovedOrder = (appInfo?.status || '').toUpperCase() === 'A' || ['X', 'S', 'D'].includes((ord.status || '').toUpperCase());
+      const approvedBy = isApprovedOrder ? (appInfo?.response_by || '').trim() || null : null;
+      const approvedByName = approvedBy
+        ? (userFullnameMap[approvedBy] || userFullnameMap[approvedBy.toUpperCase()] || userFullnameMap[approvedBy.toLowerCase()] || approvedBy)
+        : null;
+      const approvedDate = isApprovedOrder ? (appInfo?.response_date || null) : null;
+
+      // ข้อมูลผู้จัดเตรียมสินค้า (Preparer): กรณีจัดเตรียมสินค้าแล้ว (สถานะเป็น S หรือ D)
+      const isPreparedOrder = ['S', 'D'].includes((ord.status || '').toUpperCase());
+      const preparedBy = isPreparedOrder ? (ord.update_by || '').trim() || null : null;
+      const preparedByName = preparedBy
+        ? (userFullnameMap[preparedBy] || userFullnameMap[preparedBy.toUpperCase()] || userFullnameMap[preparedBy.toLowerCase()] || preparedBy)
+        : null;
+      const preparedDate = isPreparedOrder ? (ord.update_date || null) : null;
+
       orderMap[ord.order_id] = {
         order_id: ord.order_id,
         order_no: ord.order_no,
@@ -530,6 +597,12 @@ export async function GET(request) {
         reserve_flag: ord.reserve_flag || 'N',
         status: ord.status || 'W',
         remark: ord.remark || null,
+        approved_by: approvedBy,
+        approved_by_name: approvedByName,
+        approved_date: approvedDate,
+        prepared_by: preparedBy,
+        prepared_by_name: preparedByName,
+        prepared_date: preparedDate,
         response_by: respBy,
         response_by_name: respByName,
         response_date: respDate,

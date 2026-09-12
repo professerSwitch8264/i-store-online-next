@@ -25,6 +25,24 @@ export function getThumbnailUrl(thumbnail) {
   return `${base}/${encodeURI(cleanThumb)}`;
 }
 
+export function getProfileUrl(image) {
+  if (!image || image.trim() === '') return null;
+  const cleanImg = image.trim();
+  if (
+    cleanImg.startsWith('http://') ||
+    cleanImg.startsWith('https://') ||
+    cleanImg.startsWith('data:') ||
+    cleanImg.startsWith('/')
+  ) {
+    return cleanImg;
+  }
+  const base = (
+    process.env.NEXT_PUBLIC_PROFILE_IMAGE_URL ||
+    'https://zircon.wanthaifoods.com/store/profile'
+  ).replace(/\/+$/, '');
+  return `${base}/${encodeURI(cleanImg)}`;
+}
+
 /**
  * แปลง URL โลโก้ร้านค้าให้สมบูรณ์ (ดึงจาก Zircon Server /store/logo)
  */
@@ -126,4 +144,4 @@ export function formatThaiDateTime(dateVal) {
   const hours = pad(d.getHours());
   const minutes = pad(d.getMinutes());
   return `${day} ${month} ${year} · ${hours}:${minutes}`;
-}
+}

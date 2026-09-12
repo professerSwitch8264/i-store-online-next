@@ -34,6 +34,11 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const search = (searchParams.get('search') || '').trim().toLowerCase();
+    const orderNo = (searchParams.get('order_no') || '').trim();
+    const dateFrom = (searchParams.get('date_from') || '').trim();
+    const dateTo = (searchParams.get('date_to') || '').trim();
+    const buyer = (searchParams.get('buyer') || '').trim();
+    const reserveFlag = (searchParams.get('reserve_flag') || '').trim();
     const sortBy = (searchParams.get('sort_field') || searchParams.get('sortBy') || 'request_date').trim();
     const sortOrder = (searchParams.get('sort_order') || searchParams.get('sortOrder') || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
@@ -209,6 +214,7 @@ export async function GET(request) {
           approval_id: app.approval_id,
           order_id: app.order_id,
           order_no: orderInfo.order_no || app.order_no || '-',
+          order_date: orderInfo.order_date || app.order_date || app.request_date,
           request_date: app.request_date,
           approval_status: app.approval_status || 'P',
           approvers: app.approvers || '',
@@ -259,6 +265,43 @@ export async function GET(request) {
             matchProduct
           );
         });
+      });
+    }
+
+    // 6.2 กรองค้นหาละเอียด (Detail Filters)
+    if (orderNo) {
+      const kw = orderNo.toLowerCase();
+      resultList = resultList.filter((item) => (item.order_no || '').toLowerCase().includes(kw));
+    }
+    if (buyer) {
+      const kw = buyer.toLowerCase();
+      resultList = resultList.filter((item) =>
+        (item.owner || '').toLowerCase().includes(kw) ||
+        (item.owner_fullname || '').toLowerCase().includes(kw) ||
+        (item.owner_fullname_th || '').toLowerCase().includes(kw)
+      );
+    }
+    if (dateFrom) {
+      const fromTime = new Date(`${dateFrom}T00:00:00.000`).getTime();
+      resultList = resultList.filter((item) => {
+        const d = item.request_date || item.order_date;
+        const itemTime = d ? new Date(d).getTime() : 0;
+        return itemTime >= fromTime;
+      });
+    }
+    if (dateTo) {
+      const toTime = new Date(`${dateTo}T23:59:59.997`).getTime();
+      resultList = resultList.filter((item) => {
+        const d = item.request_date || item.order_date;
+        const itemTime = d ? new Date(d).getTime() : 0;
+        return itemTime <= toTime;
+      });
+    }
+    if (reserveFlag && reserveFlag !== 'ALL') {
+      const isPreorder = reserveFlag === 'Y';
+      resultList = resultList.filter((item) => {
+        const flag = item.reserve_flag === 'Y' || item.reserve_flag === true || item.reserve_flag === '1';
+        return flag === isPreorder;
       });
     }
 

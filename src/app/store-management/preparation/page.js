@@ -32,6 +32,7 @@ import { useAuth } from '@/app/components/auth/AuthProvider';
 import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useStorePreparationStore, STORE_CANCEL_REASONS } from '@/app/stores/useStorePreparationStore';
 import { useToastStore } from '@/app/stores/useToastStore';
+import { OrderSearchBox } from '@/app/components/orders/OrderSearchBox';
 import { getThumbnailUrl, formatThaiDateTime } from '@/app/lib/utils';
 import { MdViewKanban } from 'react-icons/md';
 import {
@@ -44,6 +45,9 @@ import {
   RiArrowGoBackLine,
   RiCloseCircleLine,
   RiAlertLine,
+  RiShieldCheckLine,
+  RiBox3Line,
+  RiTimeLine,
 } from 'react-icons/ri';
 
 /**
@@ -91,6 +95,11 @@ export default function StorePreparationPage() {
     error,
     searchInput,
     appliedSearch,
+    isDetailOpen,
+    setIsDetailOpen,
+    appliedDetailFilters,
+    applyDetailSearch,
+    clearDetailSearch,
     sortBy,
     sortOrder,
     selectedOrderForModal,
@@ -133,12 +142,12 @@ export default function StorePreparationPage() {
     cancelOrder,
   } = useStorePreparationStore();
 
-  // โหลดรายการคำสั่งซื้อที่ต้องจัดเตรียมเมื่อ Token หรือ storeId พร้อม
+  // โหลดรายการคำสั่งซื้อที่ต้องจัดเตรียมเมื่อ Token หรือ storeId หรือตัวกรองเปลี่ยน
   useEffect(() => {
     if (token && storeId) {
       fetchPreparingOrders(token, storeId);
     }
-  }, [token, storeId, fetchPreparingOrders]);
+  }, [token, storeId, fetchPreparingOrders, page, rowsPerPage, appliedSearch, appliedDetailFilters, sortBy, sortOrder]);
 
   // คำนวณช่วงแถวปัจจุบันของหน้า (Pagination Info: e.g. 1–10 of 16)
   const totalPages = Math.max(1, Math.ceil(totalCount / rowsPerPage));
@@ -200,6 +209,16 @@ export default function StorePreparationPage() {
     });
   }, [modalItems, itemsPrepState]);
 
+  // ตรวจสอบว่ามีรายการพรีออเดอร์ใดที่สต็อกในคลังไม่เพียงพอ (ขาด) หรือไม่
+  const hasPreorderShortage = useMemo(() => {
+    if (selectedOrderForModal?.reserve_flag !== 'Y') return false;
+    return modalItems.some((item) => {
+      const preorderStock = Number(item.preorder_stock_quantity ?? item.stock_quantity ?? 0);
+      const orderQty = Number(item.quantity_order ?? item.quantity ?? 1);
+      return preorderStock < orderQty;
+    });
+  }, [selectedOrderForModal, modalItems]);
+
   // ตรวจสอบว่ามีรายการพรีออเดอร์ใดที่ระบุส่งจริงเกินสต็อกคงเหลือในคลังพรีออเดอร์หรือไม่
   const hasPreorderStockExceeded = useMemo(() => {
     if (selectedOrderForModal?.reserve_flag !== 'Y') return false;
@@ -214,7 +233,7 @@ export default function StorePreparationPage() {
 
   // ส่งคำค้นหา
   const handleSearchSubmit = (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     applySearch(searchInput, token, storeId);
   };
 
@@ -303,7 +322,7 @@ export default function StorePreparationPage() {
       {/* ─────────────────────────────────────────────────────────────
           ส่วนที่ 1: หัวข้อหน้า และปุ่มรีเฟรช (Pinned Header สไตล์ Approvals)
           ───────────────────────────────────────────────────────────── */}
-      <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white">
+      <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-base sm:text-lg font-bold text-[#2B2F38]">
@@ -311,7 +330,7 @@ export default function StorePreparationPage() {
             </h1>
           </div>
           <p className="text-xs text-[#363636]/70 mt-0.5 font-normal">
-            ตรวจสอบและจัดเตรียมสินค้าตามคำสั่งซื้อของร้านค้า ({totalCount} รายการ)
+            ตรวจสอบและจัดเตรียมสินค้าตามคำสั่งซื้อของร้านค้า 
           </p>
         </div>
 
@@ -342,82 +361,61 @@ export default function StorePreparationPage() {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          ส่วนที่ 2: ช่องค้นหา (Single Search Bar ปุ่มเสถียร ไม่ดุกดิก)
+          ส่วนที่ 2: ช่องค้นหา พร้อมปุ่มค้นหา และปุ่ม Search Detail (3 ขีด)
           ───────────────────────────────────────────────────────────── */}
       <div className="p-3 sm:p-4 border-b border-[#D3D3D3] bg-stone-50/50 shrink-0">
-        <form onSubmit={handleSearchSubmit} className="flex w-full">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="ค้นหาหมายเลขใบสั่งซื้อ, ผู้สั่งซื้อ หรือสินค้า..."
-              className="w-full pl-3.5 pr-9 py-2 bg-white border border-r-0 border-stone-300 rounded-l-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#EB6E3E]/40 focus:outline-none transition-colors"
-            />
-
-            {searchInput && (
-              <button
-                type="button"
-                onClick={handleClearSearch}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-[#2B2F38] cursor-pointer"
-                title="ล้างคำค้นหา"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-5 sm:px-6 py-2 bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black disabled:opacity-80 text-white text-xs sm:text-sm font-medium rounded-r-md transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0 border border-[#2B2F38]"
-            title="ค้นหา"
-          >
-            <svg
-              className="w-4 h-4 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.4}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-            <span>ค้นหา</span>
-          </button>
-        </form>
+        <OrderSearchBox
+          searchInput={searchInput}
+          onSearchInputChange={setSearchInput}
+          onSearchSubmit={handleSearchSubmit}
+          onSearchClear={handleClearSearch}
+          placeholder="ค้นหาหมายเลขใบสั่งซื้อ, ผู้สั่งซื้อ หรือสินค้า..."
+          isDetailOpen={isDetailOpen}
+          setIsDetailOpen={setIsDetailOpen}
+          appliedDetailFilters={appliedDetailFilters}
+          onApplyDetail={(filters) => applyDetailSearch(filters, token, storeId)}
+          onClearDetail={() => clearDetailSearch(token, storeId)}
+          loading={loading}
+        />
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
           ส่วนที่ 3: ตารางรายการคำสั่งซื้อรอจัดเตรียม
           ───────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-h-0 bg-white">
-        {loading && orders.length === 0 ? (
-          <div className="p-12 text-center text-xs text-[#363636]/60">
-            <svg className="w-6 h-6 animate-spin mx-auto mb-2 text-[#363636]" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            กำลังโหลดรายการคำสั่งซื้อที่ต้องจัดเตรียม...
+      <div className="w-full bg-white">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-12 text-center space-y-3">
+            <div className="w-10 h-10 mx-auto border-3 border-stone-200 border-t-[#363636] rounded-full animate-spin" />
+            <p className="text-xs sm:text-sm font-normal text-[#363636]">กำลังโหลดรายการคำสั่งซื้อที่ต้องจัดเตรียม...</p>
           </div>
         ) : error ? (
-          <div className="p-8 text-center text-xs text-red-600 bg-red-50/50">
-            {error}
+          <div className="flex flex-col items-center justify-center p-8 text-center space-y-3 text-rose-600">
+            <p className="text-sm font-normal">เกิดข้อผิดพลาดในการโหลดข้อมูล: {error}</p>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="px-4 py-2 bg-[#363636] text-white text-xs font-normal rounded-md hover:bg-black cursor-pointer"
+            >
+              ลองใหม่อีกครั้ง
+            </button>
           </div>
         ) : orders.length === 0 ? (
-          <div className="p-12 text-center text-xs text-[#363636]/60">
-            {appliedSearch
-              ? `ไม่พบรายการคำสั่งซื้อที่ตรงกับ "${appliedSearch}"`
-              : 'ขณะนี้ไม่มีรายการคำสั่งซื้อที่ต้องจัดเตรียมสำหรับร้านค้านี้'}
+          <div className="flex flex-col items-center justify-center p-12 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center mx-auto text-stone-400">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-[#2B2F38]">ไม่มีรายการคำสั่งซื้อที่ต้องจัดเตรียมในขณะนี้</p>
+            <p className="text-xs text-[#363636]/60">
+              {appliedSearch
+                ? `ไม่พบข้อมูลที่ตรงกับคำค้นหา "${appliedSearch}"`
+                : 'เมื่อมีคำสั่งซื้อที่ได้รับการอนุมัติแล้ว ข้อมูลจะแสดงที่นี่โดยอัตโนมัติ'}
+            </p>
           </div>
         ) : (
           <div
-            style={{ maxHeight: 'calc((100vh / 1.1) - 260px)' }}
+            style={{ maxHeight: 'calc((100vh / 1.1) - 310px)' }}
             className="overflow-x-auto overflow-y-auto"
           >
             <table className="w-full text-left text-xs sm:text-sm border-collapse">
@@ -646,7 +644,7 @@ export default function StorePreparationPage() {
       {selectedOrderForModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-fadeIn">
           <div
-            className={`bg-white rounded-lg shadow-2xl border border-stone-300 w-full ${
+            className={`bg-white rounded-xs shadow-2xl border border-stone-300 w-full ${
               isPreparationMode ? 'max-w-4xl' : 'max-w-2xl'
             } max-h-[90vh] flex flex-col font-sans overflow-hidden transition-all`}
           >
@@ -676,7 +674,7 @@ export default function StorePreparationPage() {
             {/* Body Modal */}
             <div className="p-6 space-y-4 text-xs sm:text-sm flex flex-col flex-1 min-h-0 overflow-hidden">
               {/* ข้อมูลสรุป 6 ช่อง */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-stone-50 rounded-lg border border-stone-200 shrink-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-stone-50 rounded-xs border border-stone-200 shrink-0">
                 <div>
                   <span className="text-xs text-[#363636]/60 block font-normal">ร้านค้า</span>
                   <span className="text-xs font-medium text-[#363636]">
@@ -729,7 +727,7 @@ export default function StorePreparationPage() {
                   </span>
                 </div>
 
-                <div className="border border-[#D3D3D3] rounded-lg overflow-x-auto overflow-y-auto flex-1 min-h-0">
+                <div className="border border-[#D3D3D3] rounded-xs overflow-x-auto overflow-y-auto flex-1 min-h-0">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-stone-100 border-b border-[#D3D3D3] text-[11px] font-normal text-[#363636]/70 sticky top-0 z-10 shadow-2xs">
                       <tr>
@@ -774,27 +772,27 @@ export default function StorePreparationPage() {
 
                             {/* ชื่อสินค้า */}
                             <td className="py-2.5 px-3">
-                              <p className="font-normal text-xs text-[#363636] line-clamp-2 leading-relaxed">
-                                {item.product_name}
-                              </p>
-                              {selectedOrderForModal?.reserve_flag === 'Y' && (() => {
-                                const preStock = Number(item.preorder_stock_quantity ?? item.stock_quantity ?? 0);
-                                const isShort = preStock < orderQty;
-                                return (
-                                  <div className="mt-1 flex items-center gap-1">
-                                    {isShort ? (
-                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                                        <RiAlertLine className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                        <span>ในคลังพรีออเดอร์มี {preStock} {item.uom || 'ชิ้น'} (สั่ง {orderQty})</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-normal text-xs text-[#363636] line-clamp-2 leading-relaxed">
+                                  {item.product_name}
+                                </span>
+                                {selectedOrderForModal?.reserve_flag === 'Y' && (() => {
+                                  const preStock = Number(item.preorder_stock_quantity ?? item.stock_quantity ?? 0);
+                                  if (preStock < orderQty) {
+                                    const shortQty = orderQty - preStock;
+                                    return (
+                                      <span
+                                        title={`ในคลังพรีออเดอร์มี ${preStock} ${item.uom || 'ชิ้น'} (สั่ง ${orderQty})`}
+                                        className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200"
+                                      >
+                                        <RiAlertLine className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                        <span>ขาด {shortQty} {item.uom || 'ชิ้น'}</span>
                                       </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 text-[11px] text-stone-500">
-                                        <span>คลังพรีออเดอร์: {preStock} {item.uom || 'ชิ้น'}</span>
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })()}
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
                             </td>
 
                             {/* ที่จัดเก็บ */}
@@ -950,6 +948,28 @@ export default function StorePreparationPage() {
                   </table>
                 </div>
               </div>
+
+              {/* รายการประวัติการดำเนินงาน (Activity History Trail) */}
+              {(selectedOrderForModal.approved_by_name || selectedOrderForModal.approved_by) && (
+                <div className="space-y-2 mt-3 shrink-0">
+                  <div className="p-3.5 bg-stone-50 rounded-xs border border-stone-200 space-y-1.5 text-xs font-sans">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-stone-900">
+                        <span className="font-semibold">
+                          {selectedOrderForModal.approved_by_name || selectedOrderForModal.approved_by}
+                        </span>{' '}
+                        <span className="font-normal text-stone-500">-</span>{' '}
+                        <span className="font-normal text-stone-700">อนุมัติคำสั่งซื้อ</span>
+                      </div>
+                      {selectedOrderForModal.approved_date && (
+                        <span className="text-stone-500 font-normal shrink-0 text-[11px] sm:text-xs">
+                          {formatThaiDateTime(selectedOrderForModal.approved_date)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer Modal */}
@@ -1006,8 +1026,14 @@ export default function StorePreparationPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
+                      disabled={hasPreorderShortage}
                       onClick={() => startPreparation(modalItems)}
-                      className="px-4 py-2 bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black text-white text-xs font-medium rounded-md shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                      title={
+                        hasPreorderShortage
+                          ? 'ไม่สามารถจัดเตรียมสินค้าได้ เนื่องจากมีสินค้าในคลังพรีออเดอร์ไม่เพียงพอ (มีรายการสินค้าขาด)'
+                          : undefined
+                      }
+                      className="px-4 py-2 bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#2B2F38] text-white text-xs font-medium rounded-md shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                     >
                       <RiShoppingBag3Line className="w-4 h-4 text-white" />
                       <span>จัดเตรียมสินค้า</span>
@@ -1051,10 +1077,7 @@ export default function StorePreparationPage() {
         const remaining = Math.max(0, origQty - totalAllocated);
         const isPointComplete = totalAllocated >= origQty;
 
-        const isPreorder = selectedOrderForModal?.reserve_flag === 'Y';
-        const preorderStock = Number(allocatingItem.preorder_stock_quantity ?? allocatingItem.stock_quantity ?? 0);
-        const isPreorderExceeded = isPreorder && sent > preorderStock;
-        const canSave = totalAllocated === origQty && !isPreorderExceeded;
+        const canSave = totalAllocated === origQty;
 
         const pctSent = origQty > 0 ? (sent / origQty) * 100 : 0;
         const pctWst = origQty > 0 ? (wst / origQty) * 100 : 0;
@@ -1063,7 +1086,7 @@ export default function StorePreparationPage() {
 
         return (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/55 animate-fadeIn font-sans">
-            <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-md w-full p-5 sm:p-6 space-y-4 max-h-[95vh] overflow-y-auto">
+            <div className="bg-white rounded-xs shadow-2xl border border-stone-200 max-w-md w-full p-5 sm:p-6 space-y-4 max-h-[95vh] overflow-y-auto">
               
               {/* ส่วนหัว: ชื่อสินค้า และยอดสั่งซื้อทั้งหมด */}
               <div className="flex items-start justify-between gap-3">
@@ -1072,7 +1095,7 @@ export default function StorePreparationPage() {
                     {allocatingItem.product_name}
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
-                    คำสั่งซื้อ #{selectedOrderForModal.order_no} 
+                    คำสั่งซื้อ #{selectedOrderForModal.order_no}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
@@ -1084,27 +1107,6 @@ export default function StorePreparationPage() {
                   </div>
                 </div>
               </div>
-
-              {isPreorder && (
-                <div className={`p-2.5 rounded-lg text-xs border ${
-                  preorderStock < origQty
-                    ? 'bg-amber-50 border-amber-200 text-amber-900'
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                }`}>
-                  <div className="flex items-center gap-1.5 font-semibold">
-                    <RiAlertLine className="w-4 h-4 shrink-0" />
-                    <span>สินค้าสั่งล่วงหน้า (พรีออเดอร์)</span>
-                  </div>
-                  <div className="mt-1 text-[11px] leading-relaxed">
-                    จำนวนคงเหลือจริงในคลังพรีออเดอร์: <strong>{preorderStock}</strong> {allocatingItem.uom || 'ชิ้น'}
-                    {preorderStock < origQty && (
-                      <span className="text-amber-700 font-medium block mt-0.5">
-                        ⚠ สต็อกในคลังไม่เพียงพอกับยอดที่สั่ง ({origQty} {allocatingItem.uom || 'ชิ้น'})
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
 
               <hr className="border-slate-100 my-1" />
 
@@ -1154,67 +1156,47 @@ export default function StorePreparationPage() {
               {/* รายการการ์ด Stepper 4 ส่วน */}
               <div className="space-y-3 pt-1">
                 {/* 1. ส่งจริง */}
-                <div className="border border-slate-200 rounded-xl p-3 sm:p-3.5 flex flex-col gap-2 hover:border-slate-300 transition-colors bg-white shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 pr-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#1F6F78] shrink-0" />
-                      <div>
-                        <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                          <span>ส่งจริง</span>
-                          {isPreorderExceeded && (
-                            <span className="inline-flex items-center gap-0.5 text-xs text-amber-600 font-normal">
-                              <RiAlertLine className="w-3.5 h-3.5" />
-                              <span>เกินคลังพรีออเดอร์</span>
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          จัดเตรียมสำเร็จพร้อมส่งถึงลูกค้า
-                          {isPreorder && (
-                            <span className="block text-slate-500 font-medium mt-0.5">
-                              (มีในคลังพรีออเดอร์: {preorderStock} {allocatingItem.uom || 'ชิ้น'})
-                            </span>
-                          )}
-                        </div>
+                <div className="border border-slate-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between hover:border-slate-300 transition-colors bg-white shadow-2xs">
+                  <div className="flex items-center gap-2.5 pr-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#1F6F78] shrink-0" />
+                    <div>
+                      <div className="text-sm font-semibold text-slate-800">
+                        ส่งจริง
                       </div>
-                    </div>
-
-                    {/* Stepper Controls */}
-                    <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => decrementAllocationField('quantity_sent')}
-                        disabled={sent <= 0}
-                        className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-25 disabled:hover:bg-white disabled:cursor-not-allowed text-base font-medium transition-colors cursor-pointer"
-                        title="ลดจำนวน"
-                      >
-                        −
-                      </button>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={sent}
-                        onChange={(e) => setClampedAllocationField('quantity_sent', e.target.value)}
-                        className="w-14 h-8 text-center text-sm font-bold text-slate-800 focus:outline-none border-x border-slate-200"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => incrementAllocationField('quantity_sent')}
-                        disabled={isPointComplete}
-                        className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-25 disabled:hover:bg-white disabled:cursor-not-allowed text-base font-medium transition-colors cursor-pointer"
-                        title={isPointComplete ? 'จัดสรรครบตามยอดสั่งซื้อแล้ว' : 'เพิ่มจำนวน'}
-                      >
-                        +
-                      </button>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        จัดเตรียมสำเร็จพร้อมส่งถึงลูกค้า
+                      </div>
                     </div>
                   </div>
 
-                  {isPreorderExceeded && (
-                    <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-1.5 text-xs text-amber-800">
-                      <RiAlertLine className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>ยอดส่งจริง ({sent}) เกินจำนวนที่มีในคลังพรีออเดอร์ ({preorderStock} {allocatingItem.uom || 'ชิ้น'})</span>
-                    </div>
-                  )}
+                  {/* Stepper Controls */}
+                  <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => decrementAllocationField('quantity_sent')}
+                      disabled={sent <= 0}
+                      className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-25 disabled:hover:bg-white disabled:cursor-not-allowed text-base font-medium transition-colors cursor-pointer"
+                      title="ลดจำนวน"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={sent}
+                      onChange={(e) => setClampedAllocationField('quantity_sent', e.target.value)}
+                      className="w-14 h-8 text-center text-sm font-bold text-slate-800 focus:outline-none border-x border-slate-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => incrementAllocationField('quantity_sent')}
+                      disabled={isPointComplete}
+                      className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-25 disabled:hover:bg-white disabled:cursor-not-allowed text-base font-medium transition-colors cursor-pointer"
+                      title={isPointComplete ? 'จัดสรรครบตามยอดสั่งซื้อแล้ว' : 'เพิ่มจำนวน'}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
 
                 {/* 2. ชำรุด */}
@@ -1353,19 +1335,12 @@ export default function StorePreparationPage() {
               {/* ข้อความตรวจสอบความครบถ้วน (Validation Message Bar) */}
               <div
                 className={`py-2.5 px-3 rounded-lg text-xs text-center flex items-center justify-start gap-1.5 transition-colors ${
-                  isPreorderExceeded
-                    ? 'bg-amber-50 text-amber-900 border border-amber-200 font-medium'
-                    : canSave
+                  canSave
                     ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/70 font-medium'
                     : 'bg-slate-100 text-slate-600 font-normal'
                 }`}
               >
-                {isPreorderExceeded ? (
-                  <span className="flex items-center gap-1 text-amber-800">
-                    <RiAlertLine className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>ยอดส่งจริง ({sent}) เกินจำนวนในคลังพรีออเดอร์ ({preorderStock} {allocatingItem.uom || 'ชิ้น'}) กรุณาปรับลดยอดส่ง</span>
-                  </span>
-                ) : canSave ? (
+                {canSave ? (
                   <span>✓ จัดสรรยอดครบตามยอดสั่งซื้อเรียบร้อยแล้ว</span>
                 ) : (
                   <span>✓ กรอกจำนวนให้ครบตามยอดสั่งซื้อ (เหลืออีก {remaining} {allocatingItem.uom || 'ชิ้น'})</span>
@@ -1407,7 +1382,7 @@ export default function StorePreparationPage() {
           ───────────────────────────────────────────────────────────── */}
       {showConfirmSubmitModal && selectedOrderForModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 animate-fadeIn">
-          <div className="bg-white rounded-lg shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4 font-sans">
+          <div className="bg-white rounded-xs shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4 font-sans">
             <div>
               <h4 className="text-sm font-bold text-stone-800">
                 ยืนยันการจัดเตรียมสินค้า

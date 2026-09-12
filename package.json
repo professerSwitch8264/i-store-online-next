@@ -11,6 +11,7 @@
   "dependencies": {
     "js-cookie": "^3.0.8",
     "keycloak-js": "^26.2.4",
+    "minio": "^8.0.7",
     "mssql": "^12.7.0",
     "next": "16.3.4",
     "react": "19.2.8",

@@ -22,6 +22,7 @@ import { useAuth } from '@/app/components/auth/AuthProvider';
 import { AccountSidebar } from '@/app/components/layout/AccountSidebar';
 import { useApprovalStore, REJECT_REASONS } from '@/app/stores/useApprovalStore';
 import { useToastStore } from '@/app/stores/useToastStore';
+import { OrderSearchBox } from '@/app/components/orders/OrderSearchBox';
 import { getThumbnailUrl, formatThaiDateTime } from '@/app/lib/utils';
 import { MdViewKanban } from 'react-icons/md';
 import {
@@ -75,6 +76,11 @@ export default function ApprovalsPage() {
     error,
     searchInput,
     appliedSearch,
+    isDetailOpen,
+    setIsDetailOpen,
+    appliedDetailFilters,
+    applyDetailSearch,
+    clearDetailSearch,
     sortBy,
     sortOrder,
     selectedApprovalForModal,
@@ -107,7 +113,7 @@ export default function ApprovalsPage() {
   // โหลดข้อมูลเมื่อตัวกรองเปลี่ยน
   useEffect(() => {
     fetchApprovals(token);
-  }, [fetchApprovals, token, page, rowsPerPage, appliedSearch, sortBy, sortOrder]);
+  }, [fetchApprovals, token, page, rowsPerPage, appliedSearch, appliedDetailFilters, sortBy, sortOrder]);
 
   const triggerRefresh = () => {
     fetchApprovals(token);
@@ -129,7 +135,7 @@ export default function ApprovalsPage() {
 
   // ฟังก์ชันค้นหา
   const handleSearchSubmit = (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     applySearch(undefined, token);
   };
 
@@ -261,13 +267,13 @@ export default function ApprovalsPage() {
             {/* ─────────────────────────────────────────────────────────────
                 ส่วนที่ 1: หัวข้อหน้า และปุ่มรีเฟรช (Pinned Header)
                 ───────────────────────────────────────────────────────────── */}
-            <div className="p-4 sm:p-5 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white">
+            <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white">
               <div>
-                <h1 className="text-lg sm:text-xl font-bold text-[#2B2F38]">
+                <h1 className="text-base sm:text-lg font-bold text-[#2B2F38]">
                   รายการรออนุมัติ
                 </h1>
-                <p className="text-xs text-[#363636]/70 mt-1 font-normal">
-                  ตรวจสอบและพิจารณาคำขอเบิกสินค้าของแผนก ({totalCount} รายการ)
+                <p className="text-xs text-[#363636]/70 mt-0.5 font-normal">
+                  ตรวจสอบและพิจารณาคำขอเบิกสินค้าของแผนก 
                 </p>
               </div>
 
@@ -298,55 +304,22 @@ export default function ApprovalsPage() {
             </div>
 
             {/* ─────────────────────────────────────────────────────────────
-                ส่วนที่ 2: ช่องค้นหา (Single Search Bar ปุ่มเสถียร ไม่ดุกดิก)
+                ส่วนที่ 2: ช่องค้นหา พร้อมปุ่มค้นหา และปุ่ม Search Detail (3 ขีด)
                 ───────────────────────────────────────────────────────────── */}
-            <div className="p-3 sm:p-4 border-b border-[#D3D3D3] bg-stone-50/50 shrink-0">
-              <form onSubmit={handleSearchSubmit} className="flex w-full">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder="ค้นหาหมายเลขใบสั่งซื้อ, ผู้สั่งซื้อ, แผนก, ร้านค้า หรือสินค้า..."
-                    className="w-full pl-3.5 pr-9 py-2 bg-white border border-r-0 border-stone-300 rounded-l-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#F5A82A]/50 focus:outline-none transition-colors"
-                  />
-
-                  {searchInput && (
-                    <button
-                      type="button"
-                      onClick={handleClearSearch}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-[#2B2F38] cursor-pointer"
-                      title="ล้างคำค้นหา"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-5 sm:px-6 py-2 bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black disabled:opacity-80 text-white text-xs sm:text-sm font-medium rounded-r-md transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0 border border-[#2B2F38]"
-                  title="ค้นหา"
-                >
-                  <svg
-                    className="w-4 h-4 text-white shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.4}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                  <span>ค้นหา</span>
-                </button>
-              </form>
+            <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-[#D3D3D3] bg-stone-50/50 shrink-0">
+              <OrderSearchBox
+                searchInput={searchInput}
+                onSearchInputChange={setSearchInput}
+                onSearchSubmit={handleSearchSubmit}
+                onSearchClear={handleClearSearch}
+                placeholder="ค้นหาหมายเลขใบสั่งซื้อ, ผู้สั่งซื้อ, แผนก, ร้านค้า หรือสินค้า..."
+                isDetailOpen={isDetailOpen}
+                setIsDetailOpen={setIsDetailOpen}
+                appliedDetailFilters={appliedDetailFilters}
+                onApplyDetail={(filters) => applyDetailSearch(filters, token)}
+                onClearDetail={() => clearDetailSearch(token)}
+                loading={loading}
+              />
             </div>
 
             {/* ─────────────────────────────────────────────────────────────
@@ -626,7 +599,7 @@ export default function ApprovalsPage() {
           ───────────────────────────────────────────────────────────── */}
       {selectedApprovalForModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-fadeIn">
-          <div className="bg-white rounded-lg shadow-2xl border border-stone-300 max-w-2xl w-full max-h-[90vh] flex flex-col font-sans overflow-hidden">
+          <div className="bg-white rounded-xs shadow-2xl border border-stone-300 max-w-2xl w-full max-h-[90vh] flex flex-col font-sans overflow-hidden">
             {/* Header Modal */}
             <div className="px-6 py-4 border-b border-[#D3D3D3] bg-white flex items-center justify-between gap-4 shrink-0">
               <div>
@@ -799,7 +772,7 @@ export default function ApprovalsPage() {
           ───────────────────────────────────────────────────────────── */}
       {showApproveModal && selectedApprovalForModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 animate-fadeIn">
-          <div className="bg-white rounded-lg shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4 font-sans">
+          <div className="bg-white rounded-xs shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4 font-sans">
             <div>
               <h4 className="text-sm font-bold text-stone-800">
                 ยืนยันการอนุมัติคำสั่งซื้อ
@@ -843,7 +816,7 @@ export default function ApprovalsPage() {
           ───────────────────────────────────────────────────────────── */}
       {showRejectModal && selectedApprovalForModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 animate-fadeIn">
-          <div className="bg-white rounded-lg shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4 font-sans">
+          <div className="bg-white rounded-xs shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4 font-sans">
             <div>
               <h4 className="text-sm font-bold text-stone-800">
                 ยืนยันการปฏิเสธคำสั่งซื้อ

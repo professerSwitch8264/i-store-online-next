@@ -1,7 +1,7 @@
 // src/services/productService.js
 
 export const productService = {
-  async getProducts(params = {}) {
+  async getProducts(params = {}, token) {
     try {
       const searchParams = new URLSearchParams();
 
@@ -11,7 +11,13 @@ export const productService = {
       if (params.page) searchParams.append('page', params.page);
       if (params.limit) searchParams.append('limit', params.limit);
 
-      const res = await fetch(`/api/products?${searchParams.toString()}`);
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/products?${searchParams.toString()}`, {
+        headers,
+        cache: 'no-store',
+      });
       const data = await res.json();
 
       if (!res.ok) {

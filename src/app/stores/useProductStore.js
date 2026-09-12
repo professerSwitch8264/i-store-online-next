@@ -29,8 +29,56 @@ export const useProductStore = create((set, get) => ({
   // keywords: อาร์เรย์เก็บแท็กคำค้นหาที่ยืนยันแล้ว เช่น ['ปากกา', 'กระดาษ']
   keywords: [],
 
+  // 🔎 Search Detail States:
+  isDetailOpen: false,       // สถานะเปิด/ปิดแผงค้นหาละเอียด
+  selectedStore: '',         // store_id ที่ถูกกรองใช้งาน
+  selectedCategory: '',      // category_id ที่ถูกกรองใช้งาน
+  stores: [],                // รายการร้านค้าสำหรับดรอปดาวน์
+  categories: [],            // รายการหมวดหมู่สำหรับดรอปดาวน์
+  loadingFilters: false,     // สถานะโหลดตัวเลือกร้านค้าและหมวดหมู่
+
   // setSearchInput: ฟังก์ชันอัปเดตข้อความในช่องค้นหา
   setSearchInput: (text) => set({ searchInput: text }),
+
+  // สลับเปิด/ปิดแผง Search Detail
+  setIsDetailOpen: (open) =>
+    set((state) => ({
+      isDetailOpen: typeof open === 'function' ? open(state.isDetailOpen) : open,
+    })),
+
+  // กำหนดร้านค้าที่เลือก
+  setSelectedStore: (storeId) => set({ selectedStore: storeId }),
+
+  // กำหนดหมวดหมู่ที่เลือก
+  setSelectedCategory: (categoryId) => set({ selectedCategory: categoryId }),
+
+  // 🚀 สั่งค้นหาด้วยตัวกรองจาก Search Detail
+  applyDetailSearch: ({ storeId, categoryId }) => {
+    set({
+      selectedStore: storeId || '',
+      selectedCategory: categoryId || '',
+      pagination: { ...get().pagination, page: 1 },
+    });
+    get().fetchProducts();
+  },
+
+  // 🧹 ลบเฉพาะตัวกรองร้านค้า
+  clearStoreFilter: () => {
+    set({
+      selectedStore: '',
+      pagination: { ...get().pagination, page: 1 },
+    });
+    get().fetchProducts();
+  },
+
+  // 🧹 ลบเฉพาะตัวกรองหมวดหมู่
+  clearCategoryFilter: () => {
+    set({
+      selectedCategory: '',
+      pagination: { ...get().pagination, page: 1 },
+    });
+    get().fetchProducts();
+  },
 
   // 🏷️ addKeyword: เพิ่มคำค้นหาใหม่เข้าแท็กคำค้นหา -> รีเซ็ตกลับไปหน้า 1 เสมอ
   addKeyword: (newKeyword) => {
@@ -63,11 +111,13 @@ export const useProductStore = create((set, get) => ({
     get().fetchProducts();
   },
 
-  // resetFilter: ล้างแท็กคำค้นหาทั้งหมด และกลับไปหน้า 1
+  // resetFilter: ล้างแท็กคำค้นหาและตัวกรองทั้งหมด และกลับไปหน้า 1
   resetFilter: () => {
     set({
       searchInput: '',
       keywords: [],
+      selectedStore: '',
+      selectedCategory: '',
       pagination: { ...get().pagination, page: 1 },
     });
     get().fetchProducts();
@@ -102,13 +152,39 @@ export const useProductStore = create((set, get) => ({
     }
   },
 
-  // 🚀 โหลดสินค้าตามหน้าปัจจุบัน
+  // 📦 ดึงรายการร้านค้าและหมวดหมู่สำหรับใช้ในตัวกรอง Search Detail
+  fetchFilterOptions: async () => {
+    if (get().stores.length > 0 && get().categories.length > 0) return;
+    set({ loadingFilters: true });
+    try {
+      const [storesRes, catsRes] = await Promise.all([
+        fetch('/api/stores?mode=shop&all=true', { cache: 'no-store' }),
+        fetch('/api/categories', { cache: 'no-store' }),
+      ]);
+
+      const storesData = storesRes.ok ? await storesRes.json() : { data: [] };
+      const catsData = catsRes.ok ? await catsRes.json() : { data: [] };
+
+      set({
+        stores: storesData.data || [],
+        categories: catsData.data || [],
+        loadingFilters: false,
+      });
+    } catch (err) {
+      console.error('Error fetching filter options:', err);
+      set({ loadingFilters: false });
+    }
+  },
+
+  // 🚀 โหลดสินค้าตามหน้าปัจจุบันและตัวกรอง
   fetchProducts: async () => {
     set({ loading: true, error: null });
     try {
-      const { keywords, pagination } = get();
+      const { keywords, pagination, selectedStore, selectedCategory } = get();
       const res = await productService.getProducts({
         search: keywords.join(','),
+        store_id: selectedStore || undefined,
+        category_id: selectedCategory || undefined,
         page: pagination.page,
         limit: pagination.limit, // ส่ง limit=12 ไปที่ Backend
       });

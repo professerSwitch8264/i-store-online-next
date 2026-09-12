@@ -267,8 +267,8 @@ export function CartPopover({ mode = 'cart' }) {
             isPreorder ? 'right-[-42px] sm:right-0' : 'right-0'
           } w-[calc(100vw-20px)] max-w-[380px] sm:w-[420px]`}
         >
-          {/* การ์ดสีขาว ขอบมนเรียบหรู เงา shadow-2xl */}
-          <div className="relative bg-white rounded-lg shadow-2xl border border-stone-200 p-4 text-[#2B2F38]">
+          {/* การ์ดสีขาว ขอบมนน้อยที่สุด เงา shadow-2xl */}
+          <div className="relative bg-white rounded-xs shadow-2xl border border-stone-200 p-4 text-[#2B2F38]">
             {/* สามเหลี่ยมชี้ขึ้น (Arrow Pointer) ชี้ไปยังปุ่มไอคอนด้านบน */}
             <div
               className={`absolute -top-1.5 w-3.5 h-3.5 bg-white border-t border-l border-stone-200 rotate-45 z-20 ${

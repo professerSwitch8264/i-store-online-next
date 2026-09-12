@@ -74,8 +74,8 @@ export function PreorderModal({ isOpen, onClose, product, onConfirm }) {
       {/* 1. Backdrop พื้นหลังมืดโปร่งแสง (คลิกที่ว่างข้างนอกเพื่อปิด) */}
       <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={onClose} />
 
-      {/* 2. การ์ดหน้าต่าง Modal สีขาว ขอบคมเรียบหรู */}
-      <div className="relative w-full max-w-[380px] sm:max-w-[400px] bg-white rounded-lg shadow-2xl overflow-hidden z-10 flex flex-col border border-stone-200">
+      {/* 2. การ์ดหน้าต่าง Modal สีขาว ขอบมนน้อยที่สุด */}
+      <div className="relative w-full max-w-[380px] sm:max-w-[400px] bg-white rounded-xs shadow-2xl overflow-hidden z-10 flex flex-col border border-stone-200">
         {/* หัวข้อหน้าต่าง */}
         <div className="px-5 py-3 border-b border-stone-100 bg-white">
           <h2 className="text-sm sm:text-base font-bold text-[#2B2F38]">สั่งสินค้าล่วงหน้า</h2>
@@ -104,7 +104,7 @@ export function PreorderModal({ isOpen, onClose, product, onConfirm }) {
           <div className="space-y-1">
             {/* หมวดหมู่สินค้า */}
             <div>
-              <span className="inline-block px-2 py-0.5 rounded-xs text-[10px] sm:text-[11px] font-semibold bg-stone-100 text-stone-600 border border-stone-200/80">
+              <span className="inline-block px-2 py-0.5 rounded-xs text-[10px] sm:text-[11px]  bg-stone-100 text-stone-600 border border-stone-200/80">
                 {product.category_name || 'ทั่วไป'}
               </span>
             </div>

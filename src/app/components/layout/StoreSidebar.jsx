@@ -29,6 +29,7 @@ import {
   RiArrowLeftLine,
   RiTimeLine,
   RiListCheck2,
+  RiUserFollowLine,
 } from 'react-icons/ri';
 import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useStoreOrderStore } from '@/app/stores/useStoreOrderStore';
@@ -100,6 +101,16 @@ export function StoreSidebar() {
       icon: <RiTeamLine className="w-4.5 h-4.5" />,
       active: pathname.startsWith('/store-management/owners'),
     },
+    ...(currentStore?.store_access?.toLowerCase() === 'private'
+      ? [
+          {
+            title: 'รายชื่อลูกค้า',
+            href: '/store-management/customers',
+            icon: <RiUserFollowLine className="w-4.5 h-4.5" />,
+            active: pathname.startsWith('/store-management/customers'),
+          },
+        ]
+      : []),
   ];
 
   return (
