@@ -70,20 +70,18 @@ export async function GET(request) {
     let allowedOwners = [currentUser.username];
 
     if (isStoreView) {
-      // โหมดผู้ดูแลร้านค้า (Store Management View)
-      if (!currentUser.isAdmin) {
-        const checkOwnerReq = pool.request();
-        checkOwnerReq.input('storeId', sql.UniqueIdentifier, storeId);
-        checkOwnerReq.input('username', sql.NVarChar, currentUser.username);
-        const ownerCheck = await checkOwnerReq.query(
-          'SELECT 1 FROM owners WHERE store_id = @storeId AND username = @username'
+      // โหมดผู้ดูแลร้านค้า (Store Management View: ต้องเป็นเจ้าของร้านค้านี้เท่านั้น)
+      const checkOwnerReq = pool.request();
+      checkOwnerReq.input('storeId', sql.UniqueIdentifier, storeId);
+      checkOwnerReq.input('username', sql.NVarChar, currentUser.username);
+      const ownerCheck = await checkOwnerReq.query(
+        'SELECT 1 FROM owners WHERE store_id = @storeId AND username = @username'
+      );
+      if (ownerCheck.recordset.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'คุณไม่มีสิทธิ์จัดการร้านค้านี้ (เฉพาะเจ้าของร้านค้าเท่านั้น)' },
+          { status: 403 }
         );
-        if (ownerCheck.recordset.length === 0) {
-          return NextResponse.json(
-            { success: false, error: 'คุณไม่มีสิทธิ์จัดการร้านค้านี้' },
-            { status: 403 }
-          );
-        }
       }
     } else if (
       currentUser.isApprover &&
@@ -125,9 +123,6 @@ export async function GET(request) {
         console.warn('Approver department fetch fallback:', err);
         allowedOwners = [currentUser.username];
       }
-    } else if (currentUser.isAdmin && requestedOwner) {
-      // ผู้ดูแลระบบ (Admin) เจาะจงดูของพนักงานรายบุคคล
-      allowedOwners = [requestedOwner];
     } else {
       // พนักงานทั่วไป -> ดูเฉพาะออเดอร์ของตนเอง
       allowedOwners = [currentUser.username];

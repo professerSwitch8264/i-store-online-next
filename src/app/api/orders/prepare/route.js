@@ -101,16 +101,16 @@ export async function POST(request) {
       );
     }
 
-    // ตรวจสอบสิทธิ์: ผู้ใช้ต้องเป็นเจ้าของร้านค้า หรือผู้ดูแลระบบ (Admin)
+    // ตรวจสอบสิทธิ์: ผู้ใช้ต้องเป็นเจ้าของร้านค้า (Store Owner)
     const isStoreOwner = targetStoreId && currentUser.ownedStoreIds
       ? currentUser.ownedStoreIds.includes(targetStoreId)
       : false;
 
-    if (!isAdmin && !isStoreOwner) {
+    if (!isStoreOwner) {
       return NextResponse.json(
         {
           success: false,
-          error: 'คุณไม่มีสิทธิ์จัดการจัดเตรียมสินค้าของร้านค้านี้ (เฉพาะเจ้าของร้านหรือผู้ดูแลระบบเท่านั้น)',
+          error: 'คุณไม่มีสิทธิ์จัดการจัดเตรียมสินค้าของร้านค้านี้ (เฉพาะเจ้าของร้านค้าเท่านั้น)',
         },
         { status: 403 }
       );

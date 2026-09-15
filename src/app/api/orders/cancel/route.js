@@ -68,14 +68,13 @@ export async function POST(request) {
     const isPreorder = orderHeader.reserve_flag === 'Y';
     const orderOwner = (orderHeader.owner || '').toUpperCase();
 
-    // 4. ตรวจสอบสิทธิ์ (ผู้สั่งซื้อ, เจ้าของร้านค้า หรือ Admin เท่านั้น)
+    // 4. ตรวจสอบสิทธิ์ (ผู้สั่งซื้อ หรือ เจ้าของร้านค้าเท่านั้น)
     const isOwner = currentUser.username.toUpperCase() === orderOwner;
-    const isAdmin = currentUser.isAdmin;
     const isStoreOwner = targetStoreId && currentUser.ownedStoreIds
       ? currentUser.ownedStoreIds.includes(targetStoreId)
       : false;
 
-    if (!isOwner && !isAdmin && !isStoreOwner) {
+    if (!isOwner && !isStoreOwner) {
       return NextResponse.json(
         { success: false, error: 'คุณไม่มีสิทธิ์ยกเลิกคำสั่งซื้อนี้' },
         { status: 403 }

@@ -45,17 +45,15 @@ export async function POST(request) {
     const pool = await getDbPool();
 
     // -------------------------------------------------------------
-    // ขั้นตอนที่ 3: ตรวจสอบสิทธิ์ (ต้องเป็น Admin หรือ Owner ของร้านนี้)
+    // ขั้นตอนที่ 3: ตรวจสอบสิทธิ์ (ต้องเป็น Owner ของร้านนี้)
     // -------------------------------------------------------------
-    if (!currentUser.isAdmin) {
-      const ownerCheck = await pool.request()
-        .input('store_id', sql.VarChar(50), storeId)
-        .input('username', sql.VarChar(50), currentUser.username)
-        .query('SELECT 1 FROM owners WHERE store_id = @store_id AND username = @username');
+    const ownerCheck = await pool.request()
+      .input('store_id', sql.VarChar(50), storeId)
+      .input('username', sql.VarChar(50), currentUser.username)
+      .query('SELECT 1 FROM owners WHERE store_id = @store_id AND username = @username');
 
-      if (ownerCheck.recordset.length === 0) {
-        return NextResponse.json({ success: false, error: 'คุณไม่มีสิทธิ์แก้ไขข้อมูลร้านค้านี้' }, { status: 403 });
-      }
+    if (ownerCheck.recordset.length === 0) {
+      return NextResponse.json({ success: false, error: 'คุณไม่มีสิทธิ์แก้ไขข้อมูลร้านค้านี้ (เฉพาะเจ้าของร้านค้าเท่านั้น)' }, { status: 403 });
     }
 
     // -------------------------------------------------------------

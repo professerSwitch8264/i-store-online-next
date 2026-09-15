@@ -122,11 +122,11 @@ export async function POST(request) {
         );
       }
 
-      if (!isApprover && !isAdmin) {
+      if (!isApprover) {
         return NextResponse.json(
           {
             success: false,
-            error: 'คุณไม่มีสิทธิ์พิจารณาอนุมัติคำสั่งซื้อนี้ (เฉพาะผู้อนุมัติที่ได้รับมอบหมายหรือผู้ดูแลระบบเท่านั้น)',
+            error: 'คุณไม่มีสิทธิ์พิจารณาอนุมัติคำสั่งซื้อนี้ (เฉพาะผู้อนุมัติที่ได้รับมอบหมายเท่านั้น)',
           },
           { status: 403 }
         );
@@ -142,11 +142,11 @@ export async function POST(request) {
         );
       }
 
-      if (!isOrderOwner && !isAdmin) {
+      if (!isOrderOwner) {
         return NextResponse.json(
           {
             success: false,
-            error: 'คุณไม่มีสิทธิ์ยกเลิกคำสั่งซื้อนี้ (เฉพาะผู้สั่งซื้อหรือผู้ดูแลระบบเท่านั้น)',
+            error: 'คุณไม่มีสิทธิ์ยกเลิกคำสั่งซื้อนี้ (เฉพาะผู้สั่งซื้อเท่านั้น)',
           },
           { status: 403 }
         );

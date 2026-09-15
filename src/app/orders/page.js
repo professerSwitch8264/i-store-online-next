@@ -30,6 +30,8 @@ import { getThumbnailUrl, formatThaiDateTime } from '@/lib/utils';
 import { useOrderStore, ORDER_TABS, CANCEL_REASONS } from '@/app/stores/useOrderStore';
 import { useToastStore } from '@/app/stores/useToastStore';
 import { OrderSearchBox } from '@/app/components/orders/OrderSearchBox';
+import TablePagination from '@/app/components/ui/TablePagination';
+import { OrderStatusBadge } from '@/app/components/orders/OrderStatusBadge';
 import { MdViewKanban } from 'react-icons/md';
 import {
   RiImageLine,
@@ -51,35 +53,7 @@ import {
   RiReceiptLine,
 } from 'react-icons/ri';
 import { OrderStatusTimeline } from '@/app/components/orders/OrderStatusTimeline';
-
-/**
- * OrderItemThumbnail
- * คอมโพเนนต์รูปภาพสินค้าขนาดย่อ พร้อมระบบตรวจจับภาพเสีย (Broken Image Fallback)
- */
-function OrderItemThumbnail({ thumbnail, productName }) {
-  const [imageError, setImageError] = useState(false);
-  const thumbUrl = getThumbnailUrl(thumbnail);
-
-  if (!thumbUrl || imageError) {
-    return (
-      <div className="w-10 h-10 rounded bg-stone-100 border border-stone-200 flex items-center justify-center p-1 shrink-0 text-stone-300">
-        <RiImageLine className="w-5 h-5" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-10 h-10 rounded bg-stone-50 border border-stone-200 flex items-center justify-center p-1 overflow-hidden shrink-0">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={thumbUrl}
-        alt={productName}
-        onError={() => setImageError(true)}
-        className="w-full h-full object-contain"
-      />
-    </div>
-  );
-}
+import { OrderItemThumbnail } from '@/app/components/ui/ProductThumbnail';
 
 export default function OrdersPage() {
   const { userInfo } = useAuth();
@@ -162,11 +136,6 @@ export default function OrdersPage() {
   const handleClearSearch = () => {
     clearSearch(token);
   };
-
-  // คำนวณช่วงข้อมูลที่กำลังแสดง (เช่น 1–10 of 16)
-  const totalPages = Math.max(1, Math.ceil(totalCount / rowsPerPage));
-  const startIndex = totalCount === 0 ? 0 : (page - 1) * rowsPerPage + 1;
-  const endIndex = Math.min(page * rowsPerPage, totalCount);
 
   // ยืนยันการยกเลิกคำสั่งซื้อ
   const handleConfirmCancelOrder = async () => {
@@ -286,62 +255,6 @@ export default function OrdersPage() {
         {sortOrder === 'asc' ? '▲' : '▼'}
       </span>
     );
-  };
-
-  // ป้ายสถานะแบบ Pill Button (กำหนดความกว้างเท่ากันทั้งหมด w-[130px] สบายตา)
-  const renderStatusPill = (status, order = null) => {
-    const s = (status || 'W').toUpperCase();
-    const wasApproved = Boolean(order?.approved_by || order?.approved_by_name);
-
-    switch (s) {
-      case 'W':
-      case 'P':
-        return (
-          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#1976d2] shadow-2xs whitespace-nowrap">
-            กำลังรออนุมัติ
-          </span>
-        );
-      case 'X':
-        return (
-          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#ed6c02] shadow-2xs whitespace-nowrap">
-            กำลังเตรียมสินค้า
-          </span>
-        );
-      case 'S':
-        return (
-          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#0288d1] shadow-2xs whitespace-nowrap">
-            รอยืนยันการรับสินค้า
-          </span>
-        );
-      case 'D':
-        return (
-          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#2e7d32] shadow-2xs whitespace-nowrap">
-            ดำเนินการเสร็จสิ้น
-          </span>
-        );
-      case 'R':
-        return (
-          <div className="inline-flex flex-col items-center gap-1">
-            <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#d32f2f] shadow-2xs whitespace-nowrap">
-              ถูกปฏิเสธ
-            </span>
-          </div>
-        );
-      case 'C':
-        return (
-          <div className="inline-flex flex-col items-center gap-1">
-            <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#757575] shadow-2xs whitespace-nowrap">
-              ยกเลิกรายการ
-            </span>
-          </div>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-stone-500 whitespace-nowrap">
-            {status}
-          </span>
-        );
-    }
   };
 
   // ตรวจสอบว่าออเดอร์นี้สามารถแก้ไขหรือยกเลิกได้หรือไม่ (เฉพาะสถานะ 'W' หรือ 'P')
@@ -639,7 +552,7 @@ export default function OrdersPage() {
 
                             {/* 7. สถานะการสั่งซื้อ */}
                             <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
-                              {renderStatusPill(ord.status, ord)}
+                              <OrderStatusBadge status={ord.status} order={ord} />
                             </td>
                           </tr>
                         );
@@ -653,96 +566,15 @@ export default function OrdersPage() {
             {/* ─────────────────────────────────────────────────────────────
                 ส่วนที่ 4: แถบ Pagination ด้านล่าง
                 ───────────────────────────────────────────────────────────── */}
-            <div className="border-t border-[#D3D3D3] px-3 sm:px-4 py-2.5 flex items-center justify-between sm:justify-end gap-2 sm:gap-6 text-xs text-[#363636]/80 select-none bg-white shrink-0 flex-wrap sm:flex-nowrap rounded-b-lg">
-              {/* Rows per page Selector */}
-              <div className="flex items-center gap-2">
-                <span className="font-normal text-[#363636]/70">Rows per page:</span>
-                <div className="relative">
-                  <select
-                    value={rowsPerPage}
-                    onChange={(e) => setRowsPerPage(Number(e.target.value), token)}
-                    className="bg-transparent text-xs font-normal text-[#363636] py-1 pl-2 pr-6 border-b border-stone-300 focus:outline-none cursor-pointer appearance-none"
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                  <svg
-                    className="w-3 h-3 text-stone-600 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Range Info: e.g. 1–10 of 16 */}
-              <div className="font-normal text-[#363636]/90 min-w-[5rem] text-center">
-                {totalCount === 0 ? '0 of 0' : `${startIndex}–${endIndex} of ${totalCount}`}
-              </div>
-
-              {/* Navigation Buttons: |<  <  >  >| */}
-              <div className="flex items-center gap-1">
-                {/* First Page |< */}
-                <button
-                  type="button"
-                  onClick={() => setPage(1)}
-                  disabled={page <= 1}
-                  className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-                  title="หน้าแรกสุด"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                  </svg>
-                </button>
-
-                {/* Previous Page < */}
-                <button
-                  type="button"
-                  onClick={() => setPage(Math.max(1, page - 1))}
-                  disabled={page <= 1}
-                  className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-                  title="หน้าก่อนหน้า"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-
-                {/* Next Page > */}
-                <button
-                  type="button"
-                  onClick={() => setPage(Math.min(totalPages, page + 1))}
-                  disabled={page >= totalPages}
-                  className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-                  title="หน้าถัดไป"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-
-                {/* Last Page >| */}
-                <button
-                  type="button"
-                  onClick={() => setPage(totalPages)}
-                  disabled={page >= totalPages}
-                  className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-                  title="หน้าสุดท้าย"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+            <TablePagination
+              page={page}
+              totalCount={totalCount}
+              rowsPerPage={rowsPerPage}
+              onPageChange={(newPage) => setPage(newPage)}
+              onRowsPerPageChange={(newLimit) => setRowsPerPage(newLimit, token)}
+              loading={loading}
+              className="rounded-b-lg"
+            />
           </div>
         </div>
       </main>
@@ -766,7 +598,7 @@ export default function OrdersPage() {
 
               {/* ป้ายสถานะมุมบนขวา */}
               <div className="shrink-0">
-                {renderStatusPill(selectedOrderForModal.status, selectedOrderForModal)}
+                <OrderStatusBadge status={selectedOrderForModal.status} order={selectedOrderForModal} />
               </div>
             </div>
 

@@ -1,13 +1,19 @@
 // src/app/store-management/products/page.js
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/app/components/auth/AuthProvider';
 import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useToastStore } from '@/app/stores/useToastStore';
 import { productService } from '@/app/services/productService';
+import { categoryService } from '@/app/services/categoryService';
+import { locationService } from '@/app/services/locationService';
+import { unitService } from '@/app/services/unitService';
 import { getThumbnailUrl } from '@/lib/utils';
+import TablePagination from '@/app/components/ui/TablePagination';
+import OutlinedField from '@/app/components/ui/OutlinedField';
+import ProductThumbnail from '@/app/components/ui/ProductThumbnail';
 import {
   RiBox3Line,
   RiStore2Line,
@@ -16,41 +22,18 @@ import {
   RiCloseLine,
   RiRefreshLine,
   RiImageLine,
+  RiImageAddLine,
   RiPlayListAddLine,
   RiDeleteBinLine,
-  RiShapesLine,
+  RiEdit2Line,
+  RiAddLine,
+  RiGridLine,
   RiFileTextLine,
-  RiArrowDownSLine,
+  RiArchiveDrawerLine,
   RiChat1Line,
+  RiCheckLine,
+  RiDeleteBin7Line,
 } from 'react-icons/ri';
-
-/**
- * ProductThumbnail: คอมโพเนนต์แสดงรูปภาพสินค้าขนาดเล็กพร้อม fallback
- */
-function ProductThumbnail({ thumbnail, productName }) {
-  const [imageError, setImageError] = useState(false);
-  const thumbUrl = getThumbnailUrl(thumbnail);
-
-  if (!thumbUrl || imageError) {
-    return (
-      <div className="w-10 h-10 rounded bg-stone-100 border border-stone-200 flex items-center justify-center p-1 shrink-0 text-stone-300 mx-auto">
-        <RiImageLine className="w-5 h-5" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-10 h-10 rounded bg-stone-50 border border-stone-200 flex items-center justify-center p-1 overflow-hidden shrink-0 mx-auto">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={thumbUrl}
-        alt={productName || ''}
-        onError={() => setImageError(true)}
-        className="w-full h-full object-contain"
-      />
-    </div>
-  );
-}
 
 export default function StoreProductsPage() {
   const { userInfo } = useAuth();
@@ -63,6 +46,37 @@ export default function StoreProductsPage() {
   const [products, setProducts] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Dropdown Master Data Lists
+  const [categories, setCategories] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [units, setUnits] = useState([]);
+
+  // Add / Edit Product Modal States
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [productModalMode, setProductModalMode] = useState('create'); // 'create' | 'edit'
+  const [productForm, setProductForm] = useState({
+    product_id: null,
+    product_name: '',
+    product_desc: '',
+    company_code: '',
+    category_id: '',
+    location_id: '',
+    unit_id: '',
+    product_price: 0,
+    batch_size: 1,
+    order_limit: 0,
+    product_thumbnail: '',
+    status: 'Y',
+  });
+  const [productImageFile, setProductImageFile] = useState(null);
+  const [productImagePreview, setProductImagePreview] = useState(null);
+  const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // ดึงชื่อหน่วยที่เลือกเพื่อแสดงเป็น suffix ในฟิลด์จำนวน
+  const selectedUnitObj = units.find((u) => String(u.unit_id) === String(productForm.unit_id));
+  const selectedUnitName = selectedUnitObj?.unit_name || selectedUnitObj?.unit || '';
 
   // Receive Stock Modal States
   const [selectedProductForReceive, setSelectedProductForReceive] = useState(null);
@@ -86,7 +100,225 @@ export default function StoreProductsPage() {
 
   const storeId = currentStore?.store_id;
 
-  // จัดการเปิด-ปิด Receive Modal
+  // โหลด Master Data สำหรับ Dropdowns (หมวดหมู่, ตำแหน่งจัดเก็บ, หน่วยนับ)
+  const loadMasterData = useCallback(async () => {
+    if (!storeId) return;
+    try {
+      const [catRes, locRes, unitList] = await Promise.all([
+        categoryService.getCategories({ store_id: storeId, limit: 200 }, token).catch(() => ({ data: [] })),
+        locationService.getLocations({ store_id: storeId, limit: 200 }, token).catch(() => ({ data: [] })),
+        unitService.getUnits(token).catch(() => []),
+      ]);
+      setCategories(catRes.data || []);
+      setLocations(locRes.data || []);
+      setUnits(unitList || []);
+    } catch (err) {
+      console.warn('Failed to load dropdown master data:', err);
+    }
+  }, [storeId, token]);
+
+  // โหลดรายการสินค้าจาก Backend API
+  const loadProducts = useCallback(
+    async (targetPage = page, targetSearch = appliedSearch, targetLimit = rowsPerPage) => {
+      if (!storeId) {
+        setProducts([]);
+        setTotalCount(0);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const res = await productService.getProducts(
+          {
+            store_id: storeId,
+            search: targetSearch,
+            page: targetPage,
+            limit: targetLimit,
+            include_all: true,
+          },
+          token
+        );
+        setProducts(res.data || []);
+        setTotalCount(res.pagination?.total ?? (res.data || []).length);
+      } catch (err) {
+        console.error('Failed to load products:', err);
+        showError(err.message || 'ไม่สามารถโหลดข้อมูลสินค้าได้');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [storeId, token, showError, page, appliedSearch, rowsPerPage]
+  );
+
+  useEffect(() => {
+    if (storeId) {
+      loadProducts(1, '', rowsPerPage);
+      loadMasterData();
+    }
+  }, [storeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─────────────────────────────────────────────────────────────
+  // การจัดการ Modal เพิ่ม/แก้ไขสินค้า (Product Modal)
+  // ─────────────────────────────────────────────────────────────
+  const handleOpenCreateModal = () => {
+    setProductForm({
+      product_id: null,
+      product_name: '',
+      product_desc: '',
+      company_code: '',
+      category_id: '',
+      location_id: '',
+      unit_id: '',
+      product_price: 0,
+      batch_size: 1,
+      order_limit: 0,
+      product_thumbnail: '',
+      status: 'Y',
+    });
+    setProductImageFile(null);
+    setProductImagePreview(null);
+    setProductModalMode('create');
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenEditModal = (product) => {
+    setProductForm({
+      product_id: product.product_id,
+      product_name: product.product_name || '',
+      product_desc: product.product_desc || '',
+      company_code: product.company_code || '',
+      category_id: product.category_id || '',
+      location_id: product.location_id || '',
+      unit_id: product.unit_id || '',
+      product_price: product.product_price !== undefined && product.product_price !== null ? product.product_price : 0,
+      batch_size: product.batch_size !== undefined && product.batch_size !== null ? product.batch_size : 1,
+      order_limit: product.order_limit !== undefined && product.order_limit !== null ? product.order_limit : 0,
+      product_thumbnail: product.product_thumbnail || '',
+      status: product.status || 'Y',
+    });
+    setProductImageFile(null);
+    setProductImagePreview(product.product_thumbnail ? getThumbnailUrl(product.product_thumbnail) : null);
+    setProductModalMode('edit');
+    setIsProductModalOpen(true);
+  };
+
+  const handleCloseProductModal = () => {
+    if (isSubmittingProduct) return;
+    setIsProductModalOpen(false);
+    setProductImageFile(null);
+    setProductImagePreview(null);
+  };
+
+  const handleImageFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showError('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+      return;
+    }
+
+    setProductImageFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setProductImagePreview(objectUrl);
+  };
+
+  const handleRemoveImage = (e) => {
+    e.stopPropagation();
+    setProductImageFile(null);
+    setProductImagePreview(null);
+    setProductForm((prev) => ({ ...prev, product_thumbnail: '' }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // ตรวจสอบความถูกต้องของฟอร์ม (ต้องกรอกฟิลด์ * ครบทั้งหมด)
+  const isProductFormValid =
+    Boolean(productForm.product_name?.trim()) &&
+    Boolean(productForm.category_id) &&
+    Boolean(productForm.product_desc?.trim()) &&
+    Boolean(productForm.location_id) &&
+    Boolean(productForm.company_code?.trim()) &&
+    Boolean(productForm.unit_id) &&
+    productForm.product_price !== '' &&
+    productForm.product_price !== null &&
+    !isNaN(parseFloat(productForm.product_price)) &&
+    parseFloat(productForm.product_price) >= 0 &&
+    productForm.batch_size !== '' &&
+    productForm.batch_size !== null &&
+    !isNaN(parseInt(productForm.batch_size, 10)) &&
+    parseInt(productForm.batch_size, 10) >= 1 &&
+    productForm.order_limit !== '' &&
+    productForm.order_limit !== null &&
+    !isNaN(parseInt(productForm.order_limit, 10)) &&
+    parseInt(productForm.order_limit, 10) >= 0;
+
+  const handleProductSubmit = async (e) => {
+    e?.preventDefault();
+
+    if (!isProductFormValid) {
+      showError('กรุณากรอกข้อมูลที่จำเป็น (*) ให้ครบถ้วน');
+      return;
+    }
+
+    const price = parseFloat(productForm.product_price);
+    const batch = parseInt(productForm.batch_size, 10);
+    const limit = parseInt(productForm.order_limit, 10);
+
+    setIsSubmittingProduct(true);
+    try {
+      let finalThumbnail = productForm.product_thumbnail;
+
+      // 1. ถ้ามีไฟล์รูปภาพใหม่ ให้อัปโหลดขึ้น MinIO ก่อน
+      if (productImageFile) {
+        const uploadRes = await productService.uploadProductThumbnail(
+          productImageFile,
+          storeId,
+          productForm.product_id,
+          token
+        );
+        finalThumbnail = uploadRes.product_thumbnail;
+      }
+
+      // 2. จัดเตรียม Payload
+      const payload = {
+        store_id: storeId,
+        product_name: productForm.product_name.trim(),
+        product_desc: productForm.product_desc.trim(),
+        company_code: productForm.company_code.trim(),
+        category_id: productForm.category_id || null,
+        location_id: productForm.location_id || null,
+        unit_id: productForm.unit_id || null,
+        product_price: price,
+        batch_size: batch,
+        order_limit: limit,
+        product_thumbnail: finalThumbnail || null,
+        status: productForm.status || 'Y',
+      };
+
+      if (productModalMode === 'create') {
+        // เพิ่มสินค้าใหม่
+        const res = await productService.createProduct(payload, token);
+        showSuccess(res.message || 'เพิ่มสินค้าเรียบร้อยแล้ว');
+      } else {
+        // แก้ไขสินค้าเดิม
+        payload.product_id = productForm.product_id;
+        const res = await productService.updateProduct(payload, token);
+        showSuccess(res.message || 'บันทึกข้อมูลสินค้าเรียบร้อยแล้ว');
+      }
+
+      handleCloseProductModal();
+      loadProducts(productModalMode === 'create' ? 1 : page, appliedSearch, rowsPerPage);
+    } catch (err) {
+      console.error('Failed to submit product:', err);
+      showError(err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูลสินค้า');
+    } finally {
+      setIsSubmittingProduct(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // การจัดการ Modal รับสินค้าเข้า (Receive Modal)
+  // ─────────────────────────────────────────────────────────────
   const handleOpenReceiveModal = (product) => {
     setSelectedProductForReceive(product);
     setReceiveForm({
@@ -136,7 +368,7 @@ export default function StoreProductsPage() {
     }
   };
 
-  // สลับสถานะเปิดจำหน่าย / งดจำหน่าย (Toggle Switch สไตล์ระบบ)
+  // สลับสถานะเปิดจำหน่าย / งดจำหน่าย (Toggle Switch)
   const handleToggleStatus = async (product) => {
     const currentStatus = product.status || 'Y';
     const newStatus = currentStatus === 'Y' ? 'N' : 'Y';
@@ -190,45 +422,6 @@ export default function StoreProductsPage() {
     });
   };
 
-  // โหลดรายการสินค้าจาก Backend API
-  const loadProducts = useCallback(
-    async (targetPage = page, targetSearch = appliedSearch, targetLimit = rowsPerPage) => {
-      if (!storeId) {
-        setProducts([]);
-        setTotalCount(0);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      try {
-        const res = await productService.getProducts(
-          {
-            store_id: storeId,
-            search: targetSearch,
-            page: targetPage,
-            limit: targetLimit,
-            include_all: true,
-          },
-          token
-        );
-        setProducts(res.data || []);
-        setTotalCount(res.pagination?.total ?? (res.data || []).length);
-      } catch (err) {
-        console.error('Failed to load products:', err);
-        showError(err.message || 'ไม่สามารถโหลดข้อมูลสินค้าได้');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [storeId, token, showError, page, appliedSearch, rowsPerPage]
-  );
-
-  useEffect(() => {
-    if (storeId) {
-      loadProducts(1, '', rowsPerPage);
-    }
-  }, [storeId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // การค้นหา
   const handleSearchSubmit = (e) => {
     e?.preventDefault();
@@ -246,12 +439,8 @@ export default function StoreProductsPage() {
   };
 
   // การแบ่งหน้า
-  const totalPages = Math.max(1, Math.ceil(totalCount / rowsPerPage));
-  const startIndex = totalCount === 0 ? 0 : (page - 1) * rowsPerPage + 1;
-  const endIndex = Math.min(page * rowsPerPage, totalCount);
-
   const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages && newPage !== page) {
+    if (newPage !== page) {
       setPage(newPage);
       loadProducts(newPage, appliedSearch, rowsPerPage);
     }
@@ -311,9 +500,24 @@ export default function StoreProductsPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* ปุ่มเพิ่มสินค้าใหม่ */}
           <button
             type="button"
-            onClick={() => loadProducts(page, appliedSearch, rowsPerPage)}
+            onClick={handleOpenCreateModal}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-[#2B2F38] hover:bg-[#1E2229] text-white rounded-md text-xs font-medium transition-colors cursor-pointer shadow-2xs"
+            title="เพิ่มสินค้าใหม่"
+          >
+            <RiAddLine className="w-4 h-4" />
+            <span>เพิ่มสินค้า</span>
+          </button>
+
+          {/* ปุ่มรีเฟรช */}
+          <button
+            type="button"
+            onClick={() => {
+              loadProducts(page, appliedSearch, rowsPerPage);
+              loadMasterData();
+            }}
             disabled={loading}
             className="inline-flex items-center justify-center gap-1.5 border border-stone-300 hover:border-[#2B2F38] text-[#2B2F38] hover:bg-stone-50 text-xs font-normal px-3 py-2 rounded-md transition-colors cursor-pointer shadow-2xs"
             title="รีเฟรชข้อมูล"
@@ -325,7 +529,7 @@ export default function StoreProductsPage() {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          ส่วนที่ 2: ช่องค้นหา (Single Search Bar สไตล์มาตรฐาน)
+          ส่วนที่ 2: ช่องค้นหา (Single Search Bar)
           ───────────────────────────────────────────────────────────── */}
       <div className="p-3 sm:p-4 border-b border-[#D3D3D3] bg-stone-50/50 shrink-0">
         <form onSubmit={handleSearchSubmit} className="flex w-full">
@@ -334,7 +538,7 @@ export default function StoreProductsPage() {
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="ค้นหาชื่อหรือรายละเอียดสินค้า..."
+              placeholder="ค้นหาชื่อ หรือรายละเอียดสินค้า..."
               className="w-full pl-3.5 pr-9 py-2 bg-white border border-r-0 border-stone-300 rounded-l-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#EB6E3E]/40 focus:outline-none transition-colors"
             />
 
@@ -375,14 +579,14 @@ export default function StoreProductsPage() {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          ส่วนที่ 3: ตารางรายการสินค้า (ล็อกความสูงตามหน้าจอ)
+          ส่วนที่ 3: ตารางรายการสินค้า
           ───────────────────────────────────────────────────────────── */}
       <div className="w-full bg-white">
         <div
           style={{ maxHeight: 'calc(100vh - 320px)' }}
           className="overflow-x-auto overflow-y-auto"
         >
-          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[45rem]">
+          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[50rem]">
             <thead className="bg-white border-b border-stone-200 text-xs font-normal text-[#363636]/80 select-none sticky top-0 z-10 shadow-2xs">
               <tr>
                 <th className="py-2.5 px-3 font-normal text-[#363636] text-center w-16 bg-white">
@@ -395,7 +599,7 @@ export default function StoreProductsPage() {
                   ตำแหน่งจัดเก็บ
                 </th>
                 <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-28 bg-white whitespace-nowrap">
-                  จำนวน
+                  จำนวนคงเหลือ
                 </th>
                 <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-24 bg-white whitespace-nowrap">
                   หน่วย
@@ -406,7 +610,7 @@ export default function StoreProductsPage() {
                 <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-24 sm:w-28 bg-white whitespace-nowrap">
                   สถานะ
                 </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-24 sm:w-28 bg-white whitespace-nowrap">
+                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-32 bg-white whitespace-nowrap">
                   จัดการ
                 </th>
               </tr>
@@ -432,7 +636,7 @@ export default function StoreProductsPage() {
                         {appliedSearch ? `ไม่พบสินค้าที่ตรงกับ "${appliedSearch}"` : 'ยังไม่มีรายการสินค้าในร้านนี้'}
                       </p>
                       <p className="text-xs text-stone-500 max-w-xs">
-                        {appliedSearch ? 'ลองเปลี่ยนคำค้นหาใหม่อีกครั้ง' : 'รายการสินค้าในร้านค้าจะแสดงที่นี่'}
+                        {appliedSearch ? 'ลองเปลี่ยนคำค้นหาใหม่อีกครั้ง' : 'คลิกปุ่ม "+ เพิ่มสินค้า" เพื่อเพิ่มสินค้าใหม่'}
                       </p>
                     </div>
                   </td>
@@ -496,7 +700,7 @@ export default function StoreProductsPage() {
                         ฿{formatPrice(product.product_price)}
                       </td>
 
-                      {/* สถานะเปิดจำหน่าย/งดจำหน่าย (Toggle Switch เหมือนตารางอื่น) */}
+                      {/* สถานะเปิดจำหน่าย/งดจำหน่าย (Toggle Switch) */}
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center">
                           <button
@@ -521,9 +725,10 @@ export default function StoreProductsPage() {
                         </div>
                       </td>
 
-                      {/* จัดการ (ปุ่มรับสินค้าเข้าคลัง + ปุ่มลบสินค้า ไว้หลังสุด) */}
+                      {/* จัดการ (ปุ่มรับสินค้าเข้าคลัง + ปุ่มแก้ไข + ปุ่มลบสินค้า) */}
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
+                          {/* ปุ่มรับสินค้าเข้าคลัง */}
                           <button
                             type="button"
                             onClick={() => handleOpenReceiveModal(product)}
@@ -533,10 +738,21 @@ export default function StoreProductsPage() {
                             <RiPlayListAddLine className="w-5 h-5" />
                           </button>
 
+                          {/* ปุ่มแก้ไขสินค้า */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(product)}
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-md text-[#2B2F38] hover:text-[#2563EB] hover:bg-blue-50 active:bg-blue-100 transition-colors cursor-pointer"
+                            title="แก้ไขข้อมูลสินค้า"
+                          >
+                            <RiEdit2Line className="w-4.5 h-4.5" />
+                          </button>
+
+                          {/* ปุ่มลบสินค้า */}
                           <button
                             type="button"
                             onClick={() => handleOpenDeleteModal(product)}
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-md text-[#2B2F38] hover:text-[#D97706] hover:bg-amber-50/80 active:bg-amber-100 transition-colors cursor-pointer"
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-md text-[#2B2F38] hover:text-[#DC2626] hover:bg-rose-50 active:bg-rose-100 transition-colors cursor-pointer"
                             title="ลบสินค้า"
                           >
                             <RiDeleteBinLine className="w-4.5 h-4.5" />
@@ -555,96 +771,287 @@ export default function StoreProductsPage() {
       {/* ─────────────────────────────────────────────────────────────
           ส่วนที่ 4: แถบ Pagination ด้านล่าง
           ───────────────────────────────────────────────────────────── */}
-      <div className="border-t border-[#D3D3D3] px-3 sm:px-4 py-2.5 flex items-center justify-end gap-2 sm:gap-6 text-xs text-[#363636]/80 select-none bg-white shrink-0 flex-wrap sm:flex-nowrap">
-        {/* Rows per page Selector */}
-        <div className="flex items-center gap-2">
-          <span className="font-normal text-[#363636]/70">Rows per page:</span>
-          <div className="relative">
-            <select
-              value={rowsPerPage}
-              onChange={(e) => handleRowsPerPageChange(Number(e.target.value))}
-              className="bg-transparent text-xs font-normal text-[#363636] py-1 pl-2 pr-6 border-b border-stone-300 focus:outline-none cursor-pointer appearance-none"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <svg
-              className="w-3 h-3 text-stone-600 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Range text */}
-        <span className="font-normal text-[#363636]/70">
-          {startIndex}–{endIndex} of {totalCount}
-        </span>
-
-        {/* Page Nav Buttons */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => handlePageChange(1)}
-            disabled={page <= 1 || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าแรก"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePageChange(page - 1)}
-            disabled={page <= 1 || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าก่อนหน้า"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePageChange(page + 1)}
-            disabled={page >= totalPages || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าถัดไป"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePageChange(totalPages)}
-            disabled={page >= totalPages || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าสุดท้าย"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      <TablePagination
+        page={page}
+        totalCount={totalCount}
+        rowsPerPage={rowsPerPage}
+        onPageChange={handlePageChange}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        loading={loading}
+      />
 
       {/* ─────────────────────────────────────────────────────────────
-          Modal รับสินค้าเข้า (ตาม UI ต้นแบบ media_1789373015334.png)
+          Modal เพิ่ม / แก้ไขสินค้า (ตาม UI ต้นแบบภาพดีไซน์)
+          ───────────────────────────────────────────────────────────── */}
+      {isProductModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn font-sans">
+          {/* Backdrop พื้นหลังมืดโปร่งแสง */}
+          <div
+            className="fixed inset-0 bg-black/50 transition-opacity"
+            onClick={handleCloseProductModal}
+          />
+
+          {/* Modal Container */}
+          <div
+            className="relative bg-white rounded-lg shadow-2xl max-w-4xl w-full p-6 sm:p-7 z-10 border border-stone-200 overflow-y-auto max-h-[92vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5 border-b border-stone-100 pb-3">
+              <h3 className="text-base sm:text-lg font-bold text-[#2B2F38]">
+                {productModalMode === 'create' ? 'เพิ่มสินค้าใหม่' : 'แก้ไขข้อมูลสินค้า'}
+              </h3>
+              <button
+                type="button"
+                onClick={handleCloseProductModal}
+                disabled={isSubmittingProduct}
+                className="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
+              >
+                <RiCloseLine className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content: ซ้าย (อัปโหลดรูปภาพ) | ขวา (แบบฟอร์มข้อมูลสินค้า) */}
+            <div className="flex flex-col md:flex-row gap-5 items-stretch">
+              {/* ซ้าย: กล่องอัปโหลดรูปภาพสินค้าในกรอบเส้นประ สี่เหลี่ยมจัตุรัส */}
+              <div className="w-full md:w-[260px] flex flex-col items-center shrink-0">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageFileChange}
+                  accept="image/*"
+                  className="hidden"
+                />
+
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`group relative w-full h-[260px] border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-4 transition-all cursor-pointer overflow-hidden ${
+                    productImagePreview
+                      ? 'border-stone-300 bg-white hover:border-[#2B2F38]'
+                      : 'border-stone-300 bg-stone-50/50 hover:border-[#2B2F38] hover:bg-stone-50'
+                  }`}
+                  title="คลิกเพื่อเลือกรูปภาพสินค้า"
+                >
+                  {productImagePreview ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={productImagePreview}
+                        alt="Product Preview"
+                        className="max-w-full max-h-full object-contain"
+                      />
+                      {/* Overlay เปลี่ยน / ลบรูป */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 text-white transition-opacity">
+                        <span className="text-xs font-medium bg-black/50 px-2.5 py-1 rounded-md">
+                          คลิกเพื่อเปลี่ยนรูป
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium bg-red-600/90 hover:bg-red-700 text-white px-2 py-1 rounded transition-colors"
+                        >
+                          <RiDeleteBin7Line className="w-3.5 h-3.5" />
+                          <span>ลบรูปภาพ</span>
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-stone-400 group-hover:text-[#2B2F38] transition-colors">
+                      <RiImageAddLine className="w-12 h-12 stroke-[1.5] mb-2" />
+                      <span className="text-xs font-medium text-stone-500 group-hover:text-[#2B2F38]">
+                        รูปภาพสินค้า
+                      </span>
+                      <span className="text-[10px] text-stone-400 mt-1">คลิกเพื่ออัปโหลด</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ขวา: ช่องกรอกข้อมูลสไตล์ Outlined Floating Label */}
+              <div className="flex-1 flex flex-col justify-between gap-3.5">
+                {/* แถวที่ 1: ชื่อสินค้า * | หมวดหมู่สินค้า * */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <OutlinedField
+                    label="ชื่อสินค้า *"
+                    prefix={<span className="text-xs font-bold text-stone-400 font-mono tracking-tighter select-none">ABC</span>}
+                    value={productForm.product_name}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, product_name: e.target.value }))}
+                    disabled={isSubmittingProduct}
+                    required
+                  />
+
+                  <OutlinedField
+                    label="หมวดหมู่สินค้า *"
+                    type="select"
+                    prefix={<RiGridLine className="w-5 h-5 text-stone-400 shrink-0" />}
+                    value={productForm.category_id}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, category_id: e.target.value }))}
+                    disabled={isSubmittingProduct}
+                    required
+                  >
+                    <option value="" disabled hidden className="text-stone-400">เลือกหมวดหมู่สินค้า</option>
+                    {categories.map((c) => (
+                      <option key={c.category_id} value={c.category_id} className="text-stone-800">
+                        {c.category_name}
+                      </option>
+                    ))}
+                  </OutlinedField>
+                </div>
+
+                {/* แถวที่ 2: คำอธิบายสินค้า * (เต็มความกว้าง) */}
+                <OutlinedField
+                  label="คำอธิบายสินค้า *"
+                  prefix={<RiFileTextLine className="w-5 h-5 text-stone-400 shrink-0" />}
+                  value={productForm.product_desc}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, product_desc: e.target.value }))}
+                  disabled={isSubmittingProduct}
+                  required
+                />
+
+                {/* แถวที่ 3: ตำแหน่งจัดเก็บสินค้า * | รหัสสินค้า (บัญชี) * */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <OutlinedField
+                    label="ตำแหน่งจัดเก็บสินค้า *"
+                    type="select"
+                    prefix={<RiArchiveDrawerLine className="w-5 h-5 text-stone-400 shrink-0" />}
+                    value={productForm.location_id}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, location_id: e.target.value }))}
+                    disabled={isSubmittingProduct}
+                    required
+                  >
+                    <option value="" disabled hidden className="text-stone-400">เลือกตำแหน่งจัดเก็บสินค้า</option>
+                    {locations.map((loc) => (
+                      <option key={loc.location_id} value={loc.location_id} className="text-stone-800">
+                        {loc.location_name}
+                      </option>
+                    ))}
+                  </OutlinedField>
+
+                  <OutlinedField
+                    label="รหัสสินค้า (บัญชี) *"
+                    prefix={<span className="text-stone-400 font-bold font-mono text-base select-none">#</span>}
+                    value={productForm.company_code}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, company_code: e.target.value }))}
+                    disabled={isSubmittingProduct}
+                    required
+                  />
+                </div>
+
+                {/* แถวที่ 4: หน่วย * | ราคาสินค้า * | จำนวนในชุด * | จำกัดการขาย * */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                  {/* หน่วย * */}
+                  <OutlinedField
+                    label="หน่วย *"
+                    type="select"
+                    prefix={<RiBox3Line className="w-5 h-5 text-stone-400 shrink-0" />}
+                    value={productForm.unit_id}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, unit_id: e.target.value }))}
+                    disabled={isSubmittingProduct}
+                    required
+                  >
+                    <option value="" disabled hidden className="text-stone-400">เลือกหน่วย</option>
+                    {units.map((u) => (
+                      <option key={u.unit_id} value={u.unit_id} className="text-stone-800">
+                        {u.unit_name || u.unit}
+                      </option>
+                    ))}
+                  </OutlinedField>
+
+                  {/* ราคาสินค้า * */}
+                  <OutlinedField
+                    label="ราคาสินค้า *"
+                    type="number"
+                    step="any"
+                    min="0"
+                    suffix={<span className="text-stone-500 text-xs shrink-0 pl-1 select-none">บาท</span>}
+                    value={productForm.product_price}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, product_price: e.target.value }))}
+                    disabled={isSubmittingProduct}
+                    required
+                  />
+
+                  {/* จำนวนในชุด * (batch_size) */}
+                  <OutlinedField
+                    label="จำนวนในชุด *"
+                    type="number"
+                    step="1"
+                    min="1"
+                    suffix={
+                      selectedUnitName ? (
+                        <span className="text-stone-500 text-xs shrink-0 pl-1 select-none">
+                          {selectedUnitName}
+                        </span>
+                      ) : null
+                    }
+                    value={productForm.batch_size}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, batch_size: e.target.value }))}
+                    disabled={isSubmittingProduct}
+                    required
+                  />
+
+                  {/* จำกัดการขาย * (order_limit) */}
+                  <OutlinedField
+                    label="จำกัดการขาย *"
+                    type="number"
+                    step="1"
+                    min="0"
+                    suffix={
+                      selectedUnitName ? (
+                        <span className="text-stone-500 text-xs shrink-0 pl-1 select-none">
+                          {selectedUnitName}
+                        </span>
+                      ) : null
+                    }
+                    value={productForm.order_limit}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, order_limit: e.target.value }))}
+                    disabled={isSubmittingProduct}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* แถบปุ่ม Action มุมขวาล่าง */}
+            <div className="flex items-center justify-end gap-3 mt-6 pt-3 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={handleProductSubmit}
+                disabled={isSubmittingProduct || !isProductFormValid}
+                className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-md text-sm font-medium transition-colors cursor-pointer shadow-xs"
+              >
+                {isSubmittingProduct ? (
+                  <>
+                    <RiLoader4Line className="w-4 h-4 animate-spin" />
+                    <span>กำลังบันทึก...</span>
+                  </>
+                ) : (
+                  <>
+                    <RiCheckLine className="w-4 h-4" />
+                    <span>{productModalMode === 'create' ? 'เพิ่มสินค้า' : 'บันทึกการแก้ไข'}</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCloseProductModal}
+                disabled={isSubmittingProduct}
+                className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-[#D32F2F] hover:bg-[#C62828] active:bg-[#B71C1C] disabled:opacity-60 text-white rounded-md text-sm font-medium transition-colors cursor-pointer shadow-xs"
+              >
+                <RiCloseLine className="w-4 h-4" />
+                <span>ยกเลิก</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          Modal รับสินค้าเข้า (Receive Modal)
           ───────────────────────────────────────────────────────────── */}
       {isReceiveModalOpen && selectedProductForReceive && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn font-sans">
-          {/* Backdrop พื้นหลังมืดโปร่งแสงแบบไม่มี Blur (เหมือน Popup อื่นๆ ในระบบ) */}
+          {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/50 transition-opacity"
             onClick={handleCloseReceiveModal}
@@ -652,7 +1059,7 @@ export default function StoreProductsPage() {
 
           {/* Modal Container */}
           <div
-            className="relative bg-white rounded-lg shadow-2xl max-w-4xl w-full p-6 sm:p-7 z-10 border border-stone-200"
+            className="relative bg-white rounded-lg shadow-2xl max-w-3xl w-full p-6 sm:p-7 z-10 border border-stone-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -664,8 +1071,8 @@ export default function StoreProductsPage() {
 
             {/* Content: ซ้าย (รูปภาพ) | ขวา (แบบฟอร์ม) */}
             <div className="flex flex-col md:flex-row gap-4 sm:gap-5 items-stretch">
-              {/* ซ้าย: รูปภาพสินค้าในกรอบเส้นประ สี่เหลี่ยมจัตุรัสสูงเท่าคอลัมน์ขวาพอดี (234px) */}
-              <div className="w-full md:w-[234px] h-[234px] border-2 border-dashed border-stone-300 rounded-lg flex items-center justify-center p-4 bg-white shrink-0">
+              {/* ซ้าย: รูปภาพสินค้าในกรอบเส้นประ */}
+              <div className="w-full md:w-[260px] h-[260px] border-2 border-dashed border-stone-300 rounded-lg flex items-center justify-center p-4 bg-white shrink-0">
                 {selectedProductForReceive.product_thumbnail ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
@@ -684,118 +1091,80 @@ export default function StoreProductsPage() {
               <div className="flex-1 flex flex-col justify-between gap-3 sm:gap-3.5">
                 {/* แถวที่ 1: ชื่อสินค้า | หมวดหมู่สินค้า */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* ชื่อสินค้า */}
-                  <div className="relative border border-stone-200 rounded-md px-3.5 py-2.5 bg-stone-100 flex items-center h-12 cursor-not-allowed select-none">
-                    <span className="absolute -top-2.5 left-2.5 bg-white px-1.5 text-xs text-stone-500 font-normal leading-none select-none">
-                      ชื่อสินค้า
-                    </span>
-                    <div className="flex items-center gap-2.5 text-stone-700 text-sm truncate w-full">
-                      <span className="text-xs font-bold text-stone-400 shrink-0 font-mono tracking-tighter">ABC</span>
-                      <span className="truncate font-normal">{selectedProductForReceive.product_name}</span>
-                    </div>
-                  </div>
+                  <OutlinedField
+                    label="ชื่อสินค้า"
+                    readOnly
+                    prefix={<span className="text-xs font-bold text-stone-400 font-mono tracking-tighter">ABC</span>}
+                    value={selectedProductForReceive.product_name}
+                  />
 
-                  {/* หมวดหมู่สินค้า */}
-                  <div className="relative border border-stone-200 rounded-md px-3.5 py-2.5 bg-stone-100 flex items-center h-12 cursor-not-allowed select-none">
-                    <span className="absolute -top-2.5 left-2.5 bg-white px-1.5 text-xs text-stone-500 font-normal leading-none select-none">
-                      หมวดหมู่สินค้า
-                    </span>
-                    <div className="flex items-center gap-2.5 text-stone-700 text-sm truncate w-full">
-                      <RiShapesLine className="w-5 h-5 text-stone-400 shrink-0" />
-                      <span className="truncate font-normal">{selectedProductForReceive.category_name || '-'}</span>
-                    </div>
-                  </div>
+                  <OutlinedField
+                    label="หมวดหมู่สินค้า"
+                    readOnly
+                    prefix={<RiGridLine className="w-5 h-5 text-stone-400 shrink-0" />}
+                    value={selectedProductForReceive.category_name || '-'}
+                  />
                 </div>
 
-                {/* แถวที่ 2: คำอธิบายสินค้า (เต็มความกว้าง) */}
-                <div className="w-full relative border border-stone-200 rounded-md px-3.5 py-2.5 bg-stone-100 flex items-center h-12 cursor-not-allowed select-none">
-                  <span className="absolute -top-2.5 left-2.5 bg-white px-1.5 text-xs text-stone-500 font-normal leading-none select-none">
-                    คำอธิบายสินค้า
-                  </span>
-                  <div className="flex items-center gap-2.5 text-stone-700 text-sm truncate w-full">
-                    <RiFileTextLine className="w-5 h-5 text-stone-400 shrink-0" />
-                    <span className="truncate font-normal">
-                      {selectedProductForReceive.product_desc || selectedProductForReceive.product_name}
-                    </span>
-                  </div>
-                </div>
+                {/* แถวที่ 2: คำอธิบายสินค้า */}
+                <OutlinedField
+                  label="คำอธิบายสินค้า"
+                  readOnly
+                  prefix={<RiFileTextLine className="w-5 h-5 text-stone-400 shrink-0" />}
+                  value={selectedProductForReceive.product_desc || selectedProductForReceive.product_name}
+                />
 
-                {/* แถวที่ 3: ประเภทสินค้า * | ราคาสินค้า (บาท) * | จำนวนสินค้า * (ต่อกัน 3 ช่อง) */}
+                {/* แถวที่ 3: ประเภทสินค้า * | ราคาสินค้า (บาท) * | จำนวนสินค้า * */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                  {/* ประเภทสินค้า * */}
-                  <div className="relative border border-stone-300 rounded-md px-3.5 py-2 bg-white flex items-center h-12 focus-within:border-[#2B2F38] focus-within:ring-1 focus-within:ring-[#2B2F38]/20 transition-all">
-                    <span className="absolute -top-2.5 left-2.5 bg-white px-1.5 text-xs text-stone-500 font-normal leading-none select-none">
-                      ประเภทสินค้า *
-                    </span>
-                    <select
-                      value={receiveForm.item_type}
-                      onChange={(e) => setReceiveForm((prev) => ({ ...prev, item_type: e.target.value }))}
-                      className="w-full bg-transparent outline-none text-sm text-stone-800 cursor-pointer appearance-none pr-6 font-normal"
-                    >
-                      <option value="normal">สินค้าใหม่</option>
-                      <option value="preorder">สินค้าจองล่วงหน้า</option>
-                      <option value="waste">สินค้าชำรุด</option>
-                      <option value="lost">สินค้าหาย</option>
-                    </select>
-                    <RiArrowDownSLine className="w-4 h-4 text-stone-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
+                  <OutlinedField
+                    label="ประเภทสินค้า *"
+                    type="select"
+                    value={receiveForm.item_type}
+                    onChange={(e) => setReceiveForm((prev) => ({ ...prev, item_type: e.target.value }))}
+                  >
+                    <option value="normal">สินค้าใหม่</option>
+                    <option value="preorder">สินค้าจองล่วงหน้า</option>
+                    <option value="waste">สินค้าชำรุด</option>
+                    <option value="lost">สินค้าหาย</option>
+                  </OutlinedField>
 
-                  {/* ราคาสินค้า (บาท) * */}
-                  <div className="relative border border-stone-300 rounded-md px-3.5 py-2 bg-white flex items-center h-12 focus-within:border-[#2B2F38] focus-within:ring-1 focus-within:ring-[#2B2F38]/20 transition-all">
-                    <span className="absolute -top-2.5 left-2.5 bg-white px-1.5 text-xs text-stone-500 font-normal leading-none select-none">
-                      ราคาสินค้า (บาท) *
-                    </span>
-                    <div className="flex items-center gap-2 w-full">
-                      <span className="text-stone-500 font-semibold text-base select-none">$</span>
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        value={receiveForm.price}
-                        onChange={(e) => setReceiveForm((prev) => ({ ...prev, price: e.target.value }))}
-                        className="w-full bg-transparent outline-none text-sm text-stone-800 font-normal"
-                      />
-                    </div>
-                  </div>
+                  <OutlinedField
+                    label="ราคาสินค้า (บาท) *"
+                    type="number"
+                    step="any"
+                    min="0"
+                    prefix={<span className="text-stone-500 font-semibold text-base select-none">$</span>}
+                    value={receiveForm.price}
+                    onChange={(e) => setReceiveForm((prev) => ({ ...prev, price: e.target.value }))}
+                  />
 
-                  {/* จำนวนสินค้า * */}
-                  <div className="relative border border-stone-300 rounded-md px-3.5 py-2 bg-white flex items-center h-12 focus-within:border-[#2B2F38] focus-within:ring-1 focus-within:ring-[#2B2F38]/20 transition-all">
-                    <span className="absolute -top-2.5 left-2.5 bg-white px-1.5 text-xs text-stone-500 font-normal leading-none select-none">
-                      จำนวนสินค้า *
-                    </span>
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={receiveForm.quantity}
-                      onChange={(e) => setReceiveForm((prev) => ({ ...prev, quantity: e.target.value }))}
-                      className="w-full bg-transparent outline-none text-sm text-stone-800 font-normal"
-                    />
-                    <span className="text-stone-500 text-sm shrink-0 pl-1 select-none">
-                      {selectedProductForReceive.unit_name || selectedProductForReceive.uom || 'อัน'}
-                    </span>
-                  </div>
+                  <OutlinedField
+                    label="จำนวนสินค้า *"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={receiveForm.quantity}
+                    onChange={(e) => setReceiveForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                    suffix={
+                      <span className="text-stone-500 text-sm shrink-0 pl-1 select-none">
+                        {selectedProductForReceive.unit_name || selectedProductForReceive.uom || 'อัน'}
+                      </span>
+                    }
+                  />
                 </div>
 
-                {/* แถวที่ 4: คำอธิบายเพิ่มเติม (แยกมาไว้ล่างสุด เต็มความกว้าง) */}
-                <div className="w-full relative border border-stone-300 rounded-md px-3.5 py-2.5 bg-white flex items-center h-12 focus-within:border-[#2B2F38] focus-within:ring-1 focus-within:ring-[#2B2F38]/20 transition-all">
-                  <span className="absolute -top-2.5 left-2.5 bg-white px-1.5 text-xs text-stone-500 font-normal leading-none select-none">
-                    คำอธิบายเพิ่มเติม
-                  </span>
-                  <div className="flex items-center gap-2.5 w-full">
-                    <RiChat1Line className="w-5 h-5 text-stone-400 shrink-0" />
-                    <input
-                      type="text"
-                      value={receiveForm.remark}
-                      onChange={(e) => setReceiveForm((prev) => ({ ...prev, remark: e.target.value }))}
-                      className="w-full bg-transparent outline-none text-sm text-stone-800 font-normal"
-                    />
-                  </div>
-                </div>
+                {/* แถวที่ 4: คำอธิบายเพิ่มเติม */}
+                <OutlinedField
+                  label="คำอธิบายเพิ่มเติม"
+                  type="text"
+                  prefix={<RiChat1Line className="w-5 h-5 text-stone-400 shrink-0" />}
+                  value={receiveForm.remark}
+                  onChange={(e) => setReceiveForm((prev) => ({ ...prev, remark: e.target.value }))}
+                />
               </div>
             </div>
 
-            {/* แถบปุ่ม Action มุมขวาล่าง ตามธีมของระบบ */}
+            {/* แถบปุ่ม Action มุมขวาล่าง */}
             <div className="flex items-center justify-end gap-3 mt-6">
               <button
                 type="button"
@@ -823,4 +1192,3 @@ export default function StoreProductsPage() {
     </div>
   );
 }
-

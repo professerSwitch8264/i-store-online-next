@@ -30,7 +30,7 @@ export async function GET(request) {
 
     const currentUser = authResult.user;
     const username = currentUser.username;
-    const isAdmin = currentUser.isAdmin;
+    const isApprover = currentUser.isApprover;
 
     const { searchParams } = new URL(request.url);
     const search = (searchParams.get('search') || '').trim().toLowerCase();
@@ -44,12 +44,31 @@ export async function GET(request) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '10', 10)));
 
+    // หากไม่ได้เป็น Approver เลย ให้คืนรายการว่างเปล่าทันที
+    if (!isApprover) {
+      return NextResponse.json(
+        {
+          success: true,
+          data: [],
+          pagination: {
+            page: 1,
+            limit,
+            totalCount: 0,
+            totalPages: 1,
+          },
+        },
+        { status: 200 }
+      );
+    }
+
     const pool = await getDbPool();
 
     // ─────────────────────────────────────────────────────────────
     // 2. ดึงรายการคำขออนุมัติที่สถานะ 'P' และ en = 'Y'
     // ─────────────────────────────────────────────────────────────
     const appReq = pool.request();
+    appReq.input('username', sql.NVarChar, `%${username}%`);
+
     let appQuery = `
       SELECT 
         a.approval_id,
@@ -72,14 +91,9 @@ export async function GET(request) {
       WHERE a.status = 'P'
         AND a.en = 'Y'
         AND o.status IN ('W', 'P')
+        AND a.approvers LIKE @username
+      ORDER BY a.request_date DESC
     `;
-
-    if (!isAdmin) {
-      appReq.input('username', sql.NVarChar, `%${username}%`);
-      appQuery += ` AND a.approvers LIKE @username`;
-    }
-
-    appQuery += ` ORDER BY a.request_date DESC`;
 
     const approvalRes = await appReq.query(appQuery);
     const approvalRows = approvalRes.recordset || [];

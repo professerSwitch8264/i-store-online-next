@@ -24,24 +24,36 @@ export async function GET(request) {
 
     const currentUser = authResult.user;
     const username = currentUser.username;
-    const isAdmin = currentUser.isAdmin;
+    const isApprover = currentUser.isApprover;
+
+    // หากไม่ได้มีชื่อเป็น Approver ของแผนกใดๆ เลย ให้ส่ง 0 กลับทันที
+    if (!isApprover) {
+      return NextResponse.json(
+        {
+          success: true,
+          count: 0,
+          data: {
+            pendingCount: 0,
+            count: 0,
+          },
+        },
+        { status: 200 }
+      );
+    }
 
     const pool = await getDbPool();
     const req = pool.request();
+    req.input('username', sql.NVarChar, `%${username}%`);
 
-    let query = `
+    const query = `
       SELECT COUNT(DISTINCT a.order_id) AS count
       FROM order_approvals a
       INNER JOIN orders o ON a.order_id = o.order_id
       WHERE a.status = 'P' 
         AND a.en = 'Y'
         AND o.status IN ('W', 'P')
+        AND a.approvers LIKE @username
     `;
-
-    if (!isAdmin) {
-      req.input('username', sql.NVarChar, `%${username}%`);
-      query += ` AND a.approvers LIKE @username`;
-    }
 
     const result = await req.query(query);
     const count = Number(result.recordset[0]?.count || 0);

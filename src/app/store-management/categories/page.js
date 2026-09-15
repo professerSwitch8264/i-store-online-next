@@ -7,6 +7,8 @@ import { useAuth } from '@/app/components/auth/AuthProvider';
 import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useToastStore } from '@/app/stores/useToastStore';
 import { categoryService } from '@/app/services/categoryService';
+import TablePagination from '@/app/components/ui/TablePagination';
+import OutlinedField from '@/app/components/ui/OutlinedField';
 import {
   RiAddLine,
   RiEdit2Line,
@@ -112,14 +114,11 @@ export default function StoreCategoriesPage() {
   };
 
   // การแบ่งหน้า
-  const totalPages = Math.max(1, Math.ceil(totalCount / rowsPerPage));
-  const startIndex = totalCount === 0 ? 0 : (page - 1) * rowsPerPage + 1;
-  const endIndex = Math.min(page * rowsPerPage, totalCount);
-
   const handlePageChange = (newPage) => {
-    if (newPage < 1 || newPage > totalPages || newPage === page || loading) return;
-    setPage(newPage);
-    loadCategories(newPage, appliedSearch, rowsPerPage);
+    if (newPage !== page) {
+      setPage(newPage);
+      loadCategories(newPage, appliedSearch, rowsPerPage);
+    }
   };
 
   const handleRowsPerPageChange = (newLimit) => {
@@ -537,89 +536,14 @@ export default function StoreCategoriesPage() {
       {/* ─────────────────────────────────────────────────────────────
           ส่วนที่ 4: แถบ Pagination ด้านล่าง
           ───────────────────────────────────────────────────────────── */}
-      <div className="border-t border-[#D3D3D3] px-3 sm:px-4 py-2.5 flex items-center justify-end gap-2 sm:gap-6 text-xs text-[#363636]/80 select-none bg-white shrink-0 flex-wrap sm:flex-nowrap">
-        {/* Rows per page Selector */}
-        <div className="flex items-center gap-2">
-          <span className="font-normal text-[#363636]/70">Rows per page:</span>
-          <div className="relative">
-            <select
-              value={rowsPerPage}
-              onChange={(e) => handleRowsPerPageChange(Number(e.target.value))}
-              className="bg-transparent text-xs font-normal text-[#363636] py-1 pl-2 pr-6 border-b border-stone-300 focus:outline-none cursor-pointer appearance-none"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <svg
-              className="w-3 h-3 text-stone-600 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Range text */}
-        <span className="font-normal text-[#363636]/70">
-          {startIndex}–{endIndex} of {totalCount}
-        </span>
-
-        {/* Page Nav Buttons */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => handlePageChange(1)}
-            disabled={page <= 1 || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าแรก"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePageChange(page - 1)}
-            disabled={page <= 1 || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าก่อนหน้า"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePageChange(page + 1)}
-            disabled={page >= totalPages || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าถัดไป"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePageChange(totalPages)}
-            disabled={page >= totalPages || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าสุดท้าย"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      <TablePagination
+        page={page}
+        totalCount={totalCount}
+        rowsPerPage={rowsPerPage}
+        onPageChange={handlePageChange}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        loading={loading}
+      />
 
       {/* ─────────────────────────────────────────────────────────────
           Modal: เพิ่ม / แก้ไขหมวดหมู่สินค้า (ดีไซน์ Outlined Input ตามแบบหน้าผู้ดูแลและลูกค้า)
@@ -635,48 +559,28 @@ export default function StoreCategoriesPage() {
             <form onSubmit={handleSubmitForm}>
               <div className="space-y-5">
                 {/* ช่องชื่อหมวดหมู่สินค้า */}
-                <div>
-                  <div className="relative">
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                      <RiGridLine className="w-5 h-5 text-stone-600" />
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      autoFocus
-                      placeholder=""
-                      value={formData.category_name}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, category_name: e.target.value }))
-                      }
-                      className="w-full h-12 pl-10 pr-4 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal"
-                    />
-                    <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
-                      ชื่อหมวดหมู่สินค้า <span className="text-stone-500">*</span>
-                    </label>
-                  </div>
-                </div>
+                <OutlinedField
+                  label="ชื่อหมวดหมู่สินค้า *"
+                  type="text"
+                  required
+                  autoFocus
+                  prefix={<RiGridLine className="w-5 h-5 text-stone-600" />}
+                  value={formData.category_name}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, category_name: e.target.value }))
+                  }
+                />
 
                 {/* ช่องคำอธิบายหมวดหมู่สินค้า */}
-                <div>
-                  <div className="relative">
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                      <RiFileTextLine className="w-5 h-5 text-stone-600" />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder=""
-                      value={formData.category_desc}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, category_desc: e.target.value }))
-                      }
-                      className="w-full h-12 pl-10 pr-4 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal"
-                    />
-                    <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
-                      คำอธิบายหมวดหมู่สินค้า
-                    </label>
-                  </div>
-                </div>
+                <OutlinedField
+                  label="คำอธิบายหมวดหมู่สินค้า"
+                  type="text"
+                  prefix={<RiFileTextLine className="w-5 h-5 text-stone-600" />}
+                  value={formData.category_desc}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, category_desc: e.target.value }))
+                  }
+                />
 
                 {/* สวิตช์สถานะเปิดใช้งาน */}
                 <div className="pt-3 pb-1 border-t border-stone-100">

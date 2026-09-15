@@ -69,16 +69,15 @@ export async function POST(request) {
       );
     }
 
-    // ตรวจสอบสิทธิ์ (Admin หรือ เจ้าของร้านค้านี้)
-    const isAdmin = currentUser.isAdmin;
+    // ตรวจสอบสิทธิ์ (เจ้าของร้านค้านี้เท่านั้น)
     const isStoreOwner =
       product.store_id && currentUser.ownedStoreIds
         ? currentUser.ownedStoreIds.includes(product.store_id)
         : false;
 
-    if (!isAdmin && !isStoreOwner) {
+    if (!isStoreOwner) {
       return NextResponse.json(
-        { success: false, error: 'คุณไม่มีสิทธิ์จัดการสต็อกสินค้าของร้านค้านี้' },
+        { success: false, error: 'คุณไม่มีสิทธิ์จัดการสต็อกสินค้าของร้านค้านี้ (เฉพาะเจ้าของร้านค้าเท่านั้น)' },
         { status: 403 }
       );
     }

@@ -76,35 +76,31 @@ export async function GET(request) {
 
     if (mode === 'shop') {
       whereClauses.push("s.status = 'Y'");
-      if (!isAdmin) {
-        const allowedPrivateStoreIds = currentUser.allowedPrivateStoreIds || [];
-        const accessibleStoreIds = Array.from(
-          new Set([...allowedPrivateStoreIds, ...(currentUser.ownedStoreIds || [])])
-        );
+      const allowedPrivateStoreIds = currentUser.allowedPrivateStoreIds || [];
+      const accessibleStoreIds = Array.from(
+        new Set([...allowedPrivateStoreIds, ...(currentUser.ownedStoreIds || [])])
+      );
 
-        if (accessibleStoreIds.length > 0) {
-          const storePlaceholders = accessibleStoreIds.map((id, index) => {
-            const paramName = `acc_store_${index}`;
-            req.input(paramName, id);
-            return `@${paramName}`;
-          });
+      if (accessibleStoreIds.length > 0) {
+        const storePlaceholders = accessibleStoreIds.map((id, index) => {
+          const paramName = `acc_store_${index}`;
+          req.input(paramName, id);
+          return `@${paramName}`;
+        });
 
-          whereClauses.push(`(
-            s.store_access = 'public' 
-            OR s.store_access IS NULL 
-            OR s.store_id IN (${storePlaceholders.join(', ')})
-          )`);
-        } else {
-          whereClauses.push(`(s.store_access = 'public' OR s.store_access IS NULL)`);
-        }
+        whereClauses.push(`(
+          s.store_access = 'public' 
+          OR s.store_access IS NULL 
+          OR s.store_id IN (${storePlaceholders.join(', ')})
+        )`);
+      } else {
+        whereClauses.push(`(s.store_access = 'public' OR s.store_access IS NULL)`);
       }
     } else {
-      if (!isAdmin) {
-        req.input('username', sql.NVarChar, username);
-        whereClauses.push(`s.store_id IN (
-          SELECT store_id FROM owners WHERE username = @username
-        )`);
-      }
+      req.input('username', sql.NVarChar, username);
+      whereClauses.push(`s.store_id IN (
+        SELECT store_id FROM owners WHERE username = @username
+      )`);
     }
 
     if (search.trim()) {
@@ -222,20 +218,18 @@ export async function PUT(request) {
 
     const pool = await getDbPool();
 
-    // ตรวจสอบสิทธิ์: ต้องเป็น Admin หรือเป็นผู้ดูแลร้านในตาราง owners
-    if (!isAdmin) {
-      const ownerCheck = await pool
-        .request()
-        .input('store_id', sql.UniqueIdentifier, store_id)
-        .input('username', sql.NVarChar, username)
-        .query('SELECT 1 FROM owners WHERE store_id = @store_id AND username = @username');
+    // ตรวจสอบสิทธิ์: ต้องเป็นผู้ดูแลร้านในตาราง owners
+    const ownerCheck = await pool
+      .request()
+      .input('store_id', sql.UniqueIdentifier, store_id)
+      .input('username', sql.NVarChar, username)
+      .query('SELECT 1 FROM owners WHERE store_id = @store_id AND username = @username');
 
-      if (!ownerCheck.recordset || ownerCheck.recordset.length === 0) {
-        return NextResponse.json(
-          { success: false, error: 'คุณไม่มีสิทธิ์แก้ไขข้อมูลร้านค้านี้' },
-          { status: 403 }
-        );
-      }
+    if (!ownerCheck.recordset || ownerCheck.recordset.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'คุณไม่มีสิทธิ์แก้ไขข้อมูลร้านค้านี้ (เฉพาะเจ้าของร้านค้าเท่านั้น)' },
+        { status: 403 }
+      );
     }
 
     const parsedRestockDay =

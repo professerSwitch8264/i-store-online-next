@@ -32,7 +32,60 @@ export const productService = {
     }
   },
 
-  async updateProductStatus(productId, status, token) {
+  async createProduct(payload, token) {
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'เพิ่มสินค้าไม่สำเร็จ');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('productService.createProduct Error:', error);
+      throw error;
+    }
+  },
+
+  async uploadProductThumbnail(file, storeId, productId, token) {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('store_id', storeId);
+      if (productId) formData.append('product_id', productId);
+
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/products/image', {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'อัปโหลดรูปภาพสินค้าไม่สำเร็จ');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('productService.uploadProductThumbnail Error:', error);
+      throw error;
+    }
+  },
+
+  async updateProduct(payload, token) {
     try {
       const headers = {
         'Content-Type': 'application/json',
@@ -42,18 +95,24 @@ export const productService = {
       const res = await fetch('/api/products', {
         method: 'PUT',
         headers,
-        body: JSON.stringify({
-          product_id: productId,
-          status,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'อัปเดตสถานะสินค้าไม่สำเร็จ');
+        throw new Error(data.error || 'บันทึกข้อมูลสินค้าไม่สำเร็จ');
       }
 
       return data;
+    } catch (error) {
+      console.error('productService.updateProduct Error:', error);
+      throw error;
+    }
+  },
+
+  async updateProductStatus(productId, status, token) {
+    try {
+      return await this.updateProduct({ product_id: productId, status }, token);
     } catch (error) {
       console.error('productService.updateProductStatus Error:', error);
       throw error;

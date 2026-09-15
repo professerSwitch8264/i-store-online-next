@@ -33,6 +33,7 @@ import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useStorePreparationStore, STORE_CANCEL_REASONS } from '@/app/stores/useStorePreparationStore';
 import { useToastStore } from '@/app/stores/useToastStore';
 import { OrderSearchBox } from '@/app/components/orders/OrderSearchBox';
+import TablePagination from '@/app/components/ui/TablePagination';
 import { getThumbnailUrl, formatThaiDateTime } from '@/lib/utils';
 import { MdViewKanban } from 'react-icons/md';
 import {
@@ -57,34 +58,7 @@ import {
   RiReceiptLine,
 } from 'react-icons/ri';
 import { OrderStatusTimeline } from '@/app/components/orders/OrderStatusTimeline';
-
-/**
- * OrderItemThumbnail: แสดงรูปภาพสินค้าขนาดย่อพร้อม Fallback
- */
-function OrderItemThumbnail({ thumbnail, productName }) {
-  const [imageError, setImageError] = useState(false);
-  const thumbUrl = getThumbnailUrl(thumbnail);
-
-  if (!thumbUrl || imageError) {
-    return (
-      <div className="w-10 h-10 rounded bg-stone-100 border border-stone-200 flex items-center justify-center p-1 shrink-0 text-stone-300">
-        <RiImageLine className="w-5 h-5" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-10 h-10 rounded bg-stone-50 border border-stone-200 flex items-center justify-center p-1 overflow-hidden shrink-0">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={thumbUrl}
-        alt={productName || ''}
-        onError={() => setImageError(true)}
-        className="w-full h-full object-contain"
-      />
-    </div>
-  );
-}
+import { OrderItemThumbnail } from '@/app/components/ui/ProductThumbnail';
 
 export default function StorePreparationPage() {
   const { userInfo } = useAuth();
@@ -156,11 +130,6 @@ export default function StorePreparationPage() {
       fetchPreparingOrders(token, storeId);
     }
   }, [token, storeId, fetchPreparingOrders, page, rowsPerPage, appliedSearch, appliedDetailFilters, sortBy, sortOrder]);
-
-  // คำนวณช่วงแถวปัจจุบันของหน้า (Pagination Info: e.g. 1–10 of 16)
-  const totalPages = Math.max(1, Math.ceil(totalCount / rowsPerPage));
-  const startIndex = totalCount === 0 ? 0 : (page - 1) * rowsPerPage + 1;
-  const endIndex = Math.min(page * rowsPerPage, totalCount);
 
   // รวมสินค้าทุกล๊อตเข้าด้วยกันสำหรับแสดงผลใน Modal ของร้านค้า
   const modalItems = useMemo(() => {
@@ -562,89 +531,15 @@ export default function StorePreparationPage() {
       {/* ─────────────────────────────────────────────────────────────
           ส่วนที่ 4: แถบ Pagination ด้านล่าง
           ───────────────────────────────────────────────────────────── */}
-      <div className="border-t border-[#D3D3D3] px-4 py-2.5 flex items-center justify-end gap-6 text-xs text-[#363636]/80 select-none bg-white shrink-0 rounded-b-lg">
-        {/* Rows per page Selector */}
-        <div className="flex items-center gap-2">
-          <span className="font-normal text-[#363636]/70">Rows per page:</span>
-          <div className="relative">
-            <select
-              value={rowsPerPage}
-              onChange={(e) => setRowsPerPage(Number(e.target.value), token, storeId)}
-              className="bg-transparent text-xs font-normal text-[#363636] py-1 pl-2 pr-6 border-b border-stone-300 focus:outline-none cursor-pointer appearance-none"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <svg
-              className="w-3 h-3 text-stone-600 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Range text */}
-        <span className="font-normal text-[#363636]/70">
-          {startIndex}–{endIndex} of {totalCount}
-        </span>
-
-        {/* Page Nav Buttons */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setPage(1, token, storeId)}
-            disabled={page <= 1}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าแรก"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPage(Math.max(1, page - 1), token, storeId)}
-            disabled={page <= 1}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าก่อนหน้า"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPage(Math.min(totalPages, page + 1), token, storeId)}
-            disabled={page >= totalPages}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าถัดไป"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPage(totalPages, token, storeId)}
-            disabled={page >= totalPages}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าสุดท้าย"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      <TablePagination
+        page={page}
+        totalCount={totalCount}
+        rowsPerPage={rowsPerPage}
+        onPageChange={(newPage) => setPage(newPage, token, storeId)}
+        onRowsPerPageChange={(newLimit) => setRowsPerPage(newLimit, token, storeId)}
+        loading={loading}
+        className="rounded-b-lg"
+      />
 
       {/* ─────────────────────────────────────────────────────────────
           Modal: ดูรายละเอียดใบสั่งซื้อ พร้อมโหมดจัดเตรียมสินค้า
@@ -666,16 +561,6 @@ export default function StorePreparationPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={closeOrderModal}
-                className="text-stone-400 hover:text-stone-600 p-1 rounded-md transition-colors cursor-pointer"
-                title="ปิดหน้าต่าง"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
             </div>
 
             {/* Body Modal (ไม่มี Scroll บนการ์ดใหญ่) */}

@@ -8,6 +8,8 @@ import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useToastStore } from '@/app/stores/useToastStore';
 import { customerService } from '@/app/services/customerService';
 import { userService } from '@/app/services/userService';
+import TablePagination from '@/app/components/ui/TablePagination';
+import OutlinedField from '@/app/components/ui/OutlinedField';
 import {
   RiAddLine,
   RiDeleteBinLine,
@@ -113,12 +115,8 @@ export default function StoreCustomersPage() {
   };
 
   // การแบ่งหน้า
-  const totalPages = Math.max(1, Math.ceil(totalCount / rowsPerPage));
-  const startIndex = totalCount === 0 ? 0 : (page - 1) * rowsPerPage + 1;
-  const endIndex = Math.min(page * rowsPerPage, totalCount);
-
   const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages && newPage !== page) {
+    if (newPage !== page) {
       setPage(newPage);
       loadCustomers(newPage, appliedSearch, rowsPerPage);
     }
@@ -313,6 +311,8 @@ export default function StoreCustomersPage() {
       </div>
     );
   }
+
+  const startIndex = (page - 1) * rowsPerPage + 1;
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-[#D3D3D3]/80 flex flex-col overflow-hidden font-sans">
@@ -521,89 +521,14 @@ export default function StoreCustomersPage() {
       {/* ─────────────────────────────────────────────────────────────
           ส่วนที่ 4: แถบ Pagination ด้านล่าง
           ───────────────────────────────────────────────────────────── */}
-      <div className="border-t border-[#D3D3D3] px-3 sm:px-4 py-2.5 flex items-center justify-end gap-2 sm:gap-6 text-xs text-[#363636]/80 select-none bg-white shrink-0 flex-wrap sm:flex-nowrap">
-        {/* Rows per page Selector */}
-        <div className="flex items-center gap-2">
-          <span className="font-normal text-[#363636]/70">Rows per page:</span>
-          <div className="relative">
-            <select
-              value={rowsPerPage}
-              onChange={(e) => handleRowsPerPageChange(Number(e.target.value))}
-              className="bg-transparent text-xs font-normal text-[#363636] py-1 pl-2 pr-6 border-b border-stone-300 focus:outline-none cursor-pointer appearance-none"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <svg
-              className="w-3 h-3 text-stone-600 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Range text */}
-        <span className="font-normal text-[#363636]/70">
-          {startIndex}–{endIndex} of {totalCount}
-        </span>
-
-        {/* Page Nav Buttons */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => handlePageChange(1)}
-            disabled={page <= 1 || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าแรก"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePageChange(page - 1)}
-            disabled={page <= 1 || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าก่อนหน้า"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePageChange(page + 1)}
-            disabled={page >= totalPages || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าถัดไป"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePageChange(totalPages)}
-            disabled={page >= totalPages || loading}
-            className="w-7 h-7 flex items-center justify-center border border-stone-300 bg-white text-[#2B2F38] hover:bg-stone-50 hover:border-[#2B2F38] disabled:opacity-25 disabled:pointer-events-none rounded-none transition-all cursor-pointer"
-            title="หน้าสุดท้าย"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      <TablePagination
+        page={page}
+        totalCount={totalCount}
+        rowsPerPage={rowsPerPage}
+        onPageChange={handlePageChange}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        loading={loading}
+      />
 
       {/* ─────────────────────────────────────────────────────────────
           Modal: เพิ่มลูกค้าใหม่ (ดีไซน์ Outlined Input + Icon Adornment ตามภาพตัวอย่าง)
@@ -620,94 +545,45 @@ export default function StoreCustomersPage() {
               <div className="space-y-5">
                 {/* แถวที่ 1: รหัสผู้ใช้งาน (Dropdown) * และ ชื่อ-นามสกุล */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* ช่องรหัสผู้ใช้งาน * */}
-                  <div>
-                    <div className="relative">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                        <RiHashtag className="w-5 h-5 text-stone-600" />
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        autoFocus
-                        placeholder=""
-                        value={inputUsername}
-                        onChange={handleUsernameChange}
-                        className="w-full h-12 pl-10 pr-9 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors uppercase font-normal"
-                      />
-                      <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
-                        รหัสผู้ใช้งาน <span className="text-stone-500">*</span>
-                      </label>
-                      {lookupLoading && (
-                        <RiLoader4Line className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 animate-spin" />
-                      )}
-                    </div>
-                  </div>
+                  <OutlinedField
+                    label="รหัสผู้ใช้งาน *"
+                    type="text"
+                    required
+                    autoFocus
+                    uppercase
+                    prefix={<RiHashtag className="w-5 h-5 text-stone-600" />}
+                    suffix={lookupLoading ? <RiLoader4Line className="w-4 h-4 text-stone-400 animate-spin" /> : null}
+                    value={inputUsername}
+                    onChange={handleUsernameChange}
+                  />
 
-                  {/* ช่องที่ 2: ชื่อ-นามสกุล (Disabled/ReadOnly) */}
-                  <div>
-                    <div className="relative">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none flex items-center justify-center">
-                        <RiAccountBoxLine className="w-5 h-5 text-stone-400" />
-                      </div>
-                      <input
-                        type="text"
-                        readOnly
-                        disabled
-                        value={
-                          foundUser
-                            ? `${foundUser.firstname_th || foundUser.firstname || ''} ${foundUser.lastname_th || foundUser.lastname || ''}`.trim()
-                            : ''
-                        }
-                        placeholder=""
-                        className="w-full h-12 pl-10 pr-3 bg-stone-100 border border-stone-200 rounded-md text-sm text-stone-700 font-normal cursor-not-allowed select-none focus:outline-none"
-                      />
-                      <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-500 font-normal pointer-events-none">
-                        ชื่อ-นามสกุล
-                      </label>
-                    </div>
-                  </div>
+                  <OutlinedField
+                    label="ชื่อ-นามสกุล"
+                    readOnly
+                    prefix={<RiAccountBoxLine className="w-5 h-5 text-stone-400" />}
+                    value={
+                      foundUser
+                        ? `${foundUser.firstname_th || foundUser.firstname || ''} ${foundUser.lastname_th || foundUser.lastname || ''}`.trim()
+                        : ''
+                    }
+                  />
                 </div>
 
                 {/* แถวที่ 2: ฝ่าย (Disabled/ReadOnly) */}
-                <div>
-                  <div className="relative">
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none flex items-center justify-center">
-                      <RiBriefcaseLine className="w-5 h-5 text-stone-400" />
-                    </div>
-                    <input
-                      type="text"
-                      readOnly
-                      disabled
-                      value={foundUser ? (foundUser.department_th || foundUser.department || '') : ''}
-                      placeholder=""
-                      className="w-full h-12 pl-10 pr-3 bg-stone-100 border border-stone-200 rounded-md text-sm text-stone-700 font-normal cursor-not-allowed select-none focus:outline-none"
-                    />
-                    <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-500 font-normal pointer-events-none">
-                      ฝ่าย
-                    </label>
-                  </div>
-                </div>
+                <OutlinedField
+                  label="ฝ่าย"
+                  readOnly
+                  prefix={<RiBriefcaseLine className="w-5 h-5 text-stone-400" />}
+                  value={foundUser ? (foundUser.department_th || foundUser.department || '') : ''}
+                />
 
                 {/* แถวที่ 3: แผนก (Disabled/ReadOnly) */}
-                <div>
-                  <div className="relative">
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none flex items-center justify-center">
-                      <RiBuildingLine className="w-5 h-5 text-stone-400" />
-                    </div>
-                    <input
-                      type="text"
-                      readOnly
-                      disabled
-                      value={foundUser ? (foundUser.section_th || foundUser.section || '-') : ''}
-                      placeholder=""
-                      className="w-full h-12 pl-10 pr-3 bg-stone-100 border border-stone-200 rounded-md text-sm text-stone-700 font-normal cursor-not-allowed select-none focus:outline-none"
-                    />
-                    <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-500 font-normal pointer-events-none">
-                      แผนก
-                    </label>
-                  </div>
-                </div>
+                <OutlinedField
+                  label="แผนก"
+                  readOnly
+                  prefix={<RiBuildingLine className="w-5 h-5 text-stone-400" />}
+                  value={foundUser ? (foundUser.section_th || foundUser.section || '-') : ''}
+                />
 
                 {/* ข้อความแจ้งเตือนเมื่อไม่พบข้อมูลหรือซ้ำ */}
                 {lookupError && !lookupLoading && (

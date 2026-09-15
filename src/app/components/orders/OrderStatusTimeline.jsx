@@ -127,8 +127,8 @@ export function OrderStatusTimeline({ order, className = '' }) {
         title: isReceiveDone
           ? 'รับสินค้าเรียบร้อยแล้ว'
           : isReceiveActive
-          ? 'รอยืนยันการรับสินค้า'
-          : 'รอยืนยันการรับสินค้า',
+            ? 'รอยืนยันการรับสินค้า'
+            : 'รอยืนยันการรับสินค้า',
         state: isReceiveDone ? 'completed' : isReceiveActive ? 'active' : 'pending',
         actor: null,
         date: null,
@@ -217,135 +217,127 @@ export function OrderStatusTimeline({ order, className = '' }) {
             ประวัติและสถานะคำสั่งซื้อ
           </h4>
         </div>
-        <span className="text-[11px] text-stone-400 font-normal">
-          ({steps.filter((s) => s.state === 'completed').length}/{steps.length} ขั้นตอน)
-        </span>
       </div>
 
       {/* ไทม์ไลน์แนวตั้ง (มี Scrollbar ภายในกล่องสถานะโดยตรง) */}
       <div className="relative mt-1.5 pt-1.5 border-t border-stone-200/60 animate-fadeIn overflow-y-auto pr-1 flex-1 min-h-0">
-          {steps.map((step, idx) => {
-            const isLast = idx === steps.length - 1;
-            const nextStep = !isLast ? steps[idx + 1] : null;
-            const prevStep = idx > 0 ? steps[idx - 1] : null;
+        {steps.map((step, idx) => {
+          const isLast = idx === steps.length - 1;
+          const nextStep = !isLast ? steps[idx + 1] : null;
+          const prevStep = idx > 0 ? steps[idx - 1] : null;
 
-            return (
-              <div
-                key={step.key}
-                className={`relative flex items-center gap-2.5 px-2 py-1 rounded transition-colors ${
-                  idx % 2 === 1 ? 'bg-stone-200/50' : 'bg-transparent'
+          return (
+            <div
+              key={step.key}
+              className={`relative flex items-center gap-2.5 px-2 py-1 rounded transition-colors ${idx % 2 === 1 ? 'bg-stone-200/50' : 'bg-transparent'
                 }`}
-              >
-                {/* คอลัมน์โหนดและเส้นเชื่อม (Timeline Track Column: ล็อกให้เส้นและวงกลมอยู่กึ่งกลางเดียวกัน 100%) */}
-                <div className="relative flex items-center justify-center shrink-0 w-5 self-stretch">
-                  {/* เส้นท่อนบน: ลากจากขอบบนลงมากึ่งกลาง (สำหรับสเต็ปที่ไม่ใช่สเต็ปแรก) */}
-                  {idx > 0 && (
-                    <div
-                      className={`absolute top-0 bottom-1/2 left-1/2 -translate-x-1/2 w-[2px] z-0 ${
-                        prevStep?.state === 'completed' && (step.state === 'completed' || step.state === 'active')
-                          ? 'bg-[#10b981]'
-                          : 'bg-stone-300'
+            >
+              {/* คอลัมน์โหนดและเส้นเชื่อม (Timeline Track Column: ล็อกให้เส้นและวงกลมอยู่กึ่งกลางเดียวกัน 100%) */}
+              <div className="relative flex items-center justify-center shrink-0 w-5 self-stretch">
+                {/* เส้นท่อนบน: ลากจากขอบบนลงมากึ่งกลาง (สำหรับสเต็ปที่ไม่ใช่สเต็ปแรก) */}
+                {idx > 0 && (
+                  <div
+                    className={`absolute top-0 bottom-1/2 left-1/2 -translate-x-1/2 w-[2px] z-0 ${prevStep?.state === 'completed' && (step.state === 'completed' || step.state === 'active')
+                        ? 'bg-[#10b981]'
+                        : 'bg-stone-300'
                       }`}
-                    />
-                  )}
+                  />
+                )}
 
-                  {/* เส้นท่อนล่าง: ลากจากกึ่งกลางลงไปขอบล่าง (สำหรับสเต็ปที่ไม่ใช่สเต็ปสุดท้าย) */}
-                  {!isLast && (
-                    <div
-                      className={`absolute top-1/2 bottom-0 left-1/2 -translate-x-1/2 w-[2px] z-0 ${
-                        step.state === 'completed' && (nextStep?.state === 'completed' || nextStep?.state === 'active')
-                          ? 'bg-[#10b981]'
-                          : 'bg-stone-300'
+                {/* เส้นท่อนล่าง: ลากจากกึ่งกลางลงไปขอบล่าง (สำหรับสเต็ปที่ไม่ใช่สเต็ปสุดท้าย) */}
+                {!isLast && (
+                  <div
+                    className={`absolute top-1/2 bottom-0 left-1/2 -translate-x-1/2 w-[2px] z-0 ${step.state === 'completed' && (nextStep?.state === 'completed' || nextStep?.state === 'active')
+                        ? 'bg-[#10b981]'
+                        : 'bg-stone-300'
                       }`}
-                    />
-                  )}
+                  />
+                )}
 
-                  {/* วงกลมไอคอนโหนด (อยู่กึ่งกลาง w-5 แน่นอน) */}
-                  <div className="relative z-10 flex items-center justify-center">
-                    {renderNodeIcon(step)}
-                  </div>
+                {/* วงกลมไอคอนโหนด (อยู่กึ่งกลาง w-5 แน่นอน) */}
+                <div className="relative z-10 flex items-center justify-center">
+                  {renderNodeIcon(step)}
                 </div>
+              </div>
 
-                {/* ข้อความรายละเอียดของสเต็ป */}
-                <div className="flex-1 min-w-0">
-                  {step.remark ? (
-                    /* กรณีมีคอมเมนต์/หมายเหตุ: แสดง 2 บรรทัด (ซ้าย: หัวข้อ + คอมเมนต์, ขวา: โดยใคร + วันที่) */
-                    <div className="flex items-center justify-between gap-2">
-                      {/* ฝั่งซ้าย: ชื่อขั้นตอน (แถว 1) และ คอมเมนต์/หมายเหตุ (แถว 2) */}
-                      <div className="flex-1 min-w-0">
-                        <div
-                          className={`text-xs font-semibold leading-tight ${
-                            step.state === 'rejected'
-                              ? 'text-rose-700'
-                              : step.state === 'cancelled'
+              {/* ข้อความรายละเอียดของสเต็ป */}
+              <div className="flex-1 min-w-0">
+                {step.remark ? (
+                  /* กรณีมีคอมเมนต์/หมายเหตุ: แสดง 2 บรรทัด (ซ้าย: หัวข้อ + คอมเมนต์, ขวา: โดยใคร + วันที่) */
+                  <div className="flex items-center justify-between gap-2">
+                    {/* ฝั่งซ้าย: ชื่อขั้นตอน (แถว 1) และ คอมเมนต์/หมายเหตุ (แถว 2) */}
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className={`text-xs font-semibold leading-tight ${step.state === 'rejected'
+                            ? 'text-rose-700'
+                            : step.state === 'cancelled'
                               ? 'text-stone-700'
                               : 'text-[#2B2F38]'
                           }`}
-                        >
-                          {step.title}
-                        </div>
-                        <div className="flex items-center gap-1 text-[11px] text-stone-500 font-normal leading-tight mt-0.5">
-                          <RiChat1Line className="w-3.5 h-3.5 shrink-0 text-stone-400" />
-                          <span className="break-words">
-                            {(step.remark || '').replace(/^(Rejected|Cancelled):\s*/i, '')}
-                          </span>
-                        </div>
+                      >
+                        {step.title}
                       </div>
-
-                      {/* ฝั่งขวา: โดยใคร (แถว 1) และ วันที่และเวลา (แถว 2) */}
-                      {(step.actor || step.date) && (
-                        <div className="flex flex-col items-end justify-center text-right shrink-0 leading-tight">
-                          {step.actor && (
-                            <span className="text-[11px] text-stone-500 font-normal">
-                              โดย: <span className="font-medium text-stone-700">{step.actor}</span>
-                            </span>
-                          )}
-                          {step.date && (
-                            <span className="text-stone-400 text-[10.5px] font-normal mt-0.5">
-                              {formatThaiDateTime(step.date)}
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1 text-[11px] text-stone-500 font-normal leading-tight mt-0.5">
+                        <RiChat1Line className="w-3.5 h-3.5 shrink-0 text-stone-400" />
+                        <span className="break-words">
+                          {(step.remark || '').replace(/^(Rejected|Cancelled):\s*/i, '')}
+                        </span>
+                      </div>
                     </div>
-                  ) : (
-                    /* กรณีไม่มีคอมเมนต์: สถานะอยู่กึ่งกลางแนวตั้ง (ฝั่งซ้าย) vs โดยใคร+วันที่ (ฝั่งขวา) */
-                    <div className="flex items-center justify-between gap-2 min-h-[26px]">
-                      {/* ฝั่งซ้าย: สถานะอยู่กึ่งกลางแนวตั้ง */}
-                      <span
-                        className={`text-xs font-semibold leading-tight ${
-                          step.state === 'completed'
-                            ? 'text-[#2B2F38]'
-                            : step.state === 'active'
+
+                    {/* ฝั่งขวา: โดยใคร (แถว 1) และ วันที่และเวลา (แถว 2) */}
+                    {(step.actor || step.date) && (
+                      <div className="flex flex-col items-end justify-center text-right shrink-0 leading-tight">
+                        {step.actor && (
+                          <span className="text-[11px] text-stone-500 font-normal">
+                            โดย: <span className="font-medium text-stone-700">{step.actor}</span>
+                          </span>
+                        )}
+                        {step.date && (
+                          <span className="text-stone-400 text-[10.5px] font-normal mt-0.5">
+                            {formatThaiDateTime(step.date)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* กรณีไม่มีคอมเมนต์: สถานะอยู่กึ่งกลางแนวตั้ง (ฝั่งซ้าย) vs โดยใคร+วันที่ (ฝั่งขวา) */
+                  <div className="flex items-center justify-between gap-2 min-h-[26px]">
+                    {/* ฝั่งซ้าย: สถานะอยู่กึ่งกลางแนวตั้ง */}
+                    <span
+                      className={`text-xs font-semibold leading-tight ${step.state === 'completed'
+                          ? 'text-[#2B2F38]'
+                          : step.state === 'active'
                             ? 'text-[#1976d2]'
                             : 'text-stone-400 font-normal'
                         }`}
-                      >
-                        {step.title}
-                      </span>
+                    >
+                      {step.title}
+                    </span>
 
-                      {/* ฝั่งขวา: โดยใคร (แถว 1) และ วันที่และเวลา (แถว 2) */}
-                      {(step.actor || step.date) && (
-                        <div className="flex flex-col items-end justify-center text-right shrink-0 leading-tight">
-                          {step.actor && (
-                            <span className="text-[11px] text-stone-500 font-normal">
-                              โดย: <span className="font-medium text-stone-700">{step.actor}</span>
-                            </span>
-                          )}
-                          {step.date && (
-                            <span className="text-stone-400 text-[10.5px] font-normal mt-0.5">
-                              {formatThaiDateTime(step.date)}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    {/* ฝั่งขวา: โดยใคร (แถว 1) และ วันที่และเวลา (แถว 2) */}
+                    {(step.actor || step.date) && (
+                      <div className="flex flex-col items-end justify-center text-right shrink-0 leading-tight">
+                        {step.actor && (
+                          <span className="text-[11px] text-stone-500 font-normal">
+                            โดย: <span className="font-medium text-stone-700">{step.actor}</span>
+                          </span>
+                        )}
+                        {step.date && (
+                          <span className="text-stone-400 text-[10.5px] font-normal mt-0.5">
+                            {formatThaiDateTime(step.date)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

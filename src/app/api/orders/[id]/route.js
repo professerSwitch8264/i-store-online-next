@@ -96,13 +96,12 @@ export async function GET(request, { params }) {
 
     const firstRow = orderRows[0];
 
-    // 2. ตรวจสอบสิทธิ์การเข้าถึง (Owner / Approver / Store Owner / Admin)
+    // 2. ตรวจสอบสิทธิ์การเข้าถึง (Owner / Approver / Store Owner)
     const isOwner = (firstRow.owner || '').toUpperCase() === currentUser.username.toUpperCase();
-    const isAdmin = currentUser.isAdmin;
     const isStoreOwner = firstRow.store_id && currentUser.ownedStoreIds ? currentUser.ownedStoreIds.includes(firstRow.store_id) : false;
     const isDeptApprover = currentUser.isApprover;
 
-    if (!isOwner && !isAdmin && !isStoreOwner && !isDeptApprover) {
+    if (!isOwner && !isStoreOwner && !isDeptApprover) {
       return NextResponse.json(
         { success: false, error: 'คุณไม่มีสิทธิ์เข้าถึงข้อมูลคำสั่งซื้อฉบับนี้' },
         { status: 403 }
