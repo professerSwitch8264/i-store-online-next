@@ -259,9 +259,9 @@ export default function StoreCategoriesPage() {
     }
 
     showConfirm({
-      title: 'ยืนยันการลบหมวดหมู่สินค้า',
-      message: `คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่ "${cat.category_name}" ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`,
-      confirmText: 'ยืนยันการลบ',
+      title: 'คุณต้องการลบหมวดหมู่สินค้าออกหรือไม่?',
+      message: `ชื่อหมวดหมู่สินค้า : ${cat.category_name}\nคำอธิบายหมวดหมู่สินค้า : ${cat.category_desc || '-'}`,
+      confirmText: 'ยืนยัน',
       cancelText: 'ยกเลิก',
       confirmColor: 'red',
       onConfirm: async () => {
@@ -396,10 +396,10 @@ export default function StoreCategoriesPage() {
           ───────────────────────────────────────────────────────────── */}
       <div className="w-full bg-white">
         <div
-          style={{ maxHeight: 'calc((100vh / 1.1) - 270px)' }}
+          style={{ maxHeight: 'calc(100vh - 320px)' }}
           className="overflow-x-auto overflow-y-auto"
         >
-          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[560px]">
+          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[35rem]">
             <thead className="bg-white border-b border-stone-200 text-xs font-normal text-[#363636]/80 select-none sticky top-0 z-10 shadow-2xs">
               <tr>
                 <th className="py-2.5 px-5 sm:px-6 font-normal text-[#363636] bg-white">

@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "../assets/fonts/kanit.css";
 
+html {
+  font-size: 110%; /* 1rem = 17.6px (16px * 1.1) ปรับสเกล 1.1 เท่าทั่วทั้งระบบแบบมาตรฐาน W3C */
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -67,6 +71,9 @@ input[type=number] {
 .date-input-clickable {
   position: relative;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  caret-color: transparent;
 }
 
 .date-input-clickable::-webkit-calendar-picker-indicator {
@@ -77,4 +84,39 @@ input[type=number] {
   height: 100%;
   opacity: 0;
   cursor: pointer;
+  z-index: 10;
 }
+
+.date-input-clickable::-webkit-datetime-edit,
+.date-input-clickable::-webkit-datetime-edit-fields-wrapper,
+.date-input-clickable::-webkit-datetime-edit-text,
+.date-input-clickable::-webkit-datetime-edit-month-field,
+.date-input-clickable::-webkit-datetime-edit-day-field,
+.date-input-clickable::-webkit-datetime-edit-year-field {
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+}
+
+/* ซ่อนข้อความ placeholder mm/dd/yyyy เมื่อยังไม่มีการเลือกวัน ปิด selection และ cursor */
+.date-input-empty::-webkit-datetime-edit,
+.date-input-empty::-webkit-datetime-edit-fields-wrapper,
+.date-input-empty::-webkit-datetime-edit-text,
+.date-input-empty::-webkit-datetime-edit-month-field,
+.date-input-empty::-webkit-datetime-edit-day-field,
+.date-input-empty::-webkit-datetime-edit-year-field {
+  color: transparent !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  pointer-events: none !important;
+}
+
+.date-input-empty::selection,
+.date-input-empty *::selection,
+.date-input-clickable::selection,
+.date-input-clickable *::selection {
+  background: transparent !important;
+  color: transparent !important;
+}
+
+

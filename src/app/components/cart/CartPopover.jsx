@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/app/stores/useCartStore';     // 👈 @/app/stores
 import { useToastStore } from '@/app/stores/useToastStore';   // 👈 @/app/stores
 import { QuantityStepper } from '@/app/components/ui/QuantityStepper'; // 👈 @/app/components
-import { formatPrice, getThumbnailUrl } from '@/app/lib/utils'; // 👈 @/app/lib
-import { RiBookmarkLine, RiImageLine, RiDeleteBin6Line } from 'react-icons/ri';
+import { formatPrice, getThumbnailUrl } from '@/lib/utils';
+import { RiBookmarkLine, RiImageLine, RiDeleteBin6Line, RiAlertLine } from 'react-icons/ri';
 
 /**
  * Component: CartItemThumbnail (แสดงภาพขนาดย่อ หรือสลับไปแสดงไอคอน RiImageLine เมื่อรูปเสียหรือไม่มีรูป)
@@ -133,10 +133,13 @@ export function CartPopover({ mode = 'cart' }) {
       }
       const targetItem = items.find((i) => i.id === itemId);
       if (targetItem) {
+        const pName = targetItem.product?.product_name || 'สินค้านี้';
+        const sName = targetItem.product?.store_name || '-';
         showConfirm({
-          title: 'ยืนยันการลบสินค้า',
-          message: `คุณแน่ใจหรือไม่ว่าต้องการลบรายการ "${targetItem.product?.product_name || 'สินค้านี้'}" ออกจากตะกร้า?`,
-          confirmText: 'ยืนยันการลบ',
+          title: 'คุณต้องการลบสินค้านี้ออกจากตะกร้าหรือไม่?',
+          message: `ชื่อสินค้า : ${pName}\nร้านค้า : ${sName}`,
+          confirmText: 'ยืนยัน',
+          cancelText: 'ยกเลิก',
           confirmColor: 'red',
           onConfirm: () => handleRemoveItem(itemId),
           onCancel: () => {
@@ -333,13 +336,21 @@ export function CartPopover({ mode = 'cart' }) {
 
                       {/* ชื่อสินค้าและราคา */}
                       <div className="flex-1 min-w-0 pr-1">
+                        {String(p?.status || 'Y').trim().toUpperCase() === 'N' && (
+                          <div className="mb-0.5">
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-50 text-red-600 border border-red-200">
+                              <RiAlertLine className="w-2.5 h-2.5 text-red-500 shrink-0" />
+                              <span>งดจำหน่าย</span>
+                            </span>
+                          </div>
+                        )}
                         <p
                           className="text-xs font-semibold text-black leading-snug truncate"
                           title={p.product_name}
                         >
                           {p.product_name || 'สินค้า'}
                         </p>
-                        <p className="text-[11px] text-stone-500 font-medium mt-0.5">
+                        <p className="text-[11px] text-stone-500 font-normal">
                           ฿{formatPrice(itemTotal)}
                         </p>
                       </div>
@@ -363,10 +374,13 @@ export function CartPopover({ mode = 'cart' }) {
                           type="button"
                           disabled={isUpdating}
                           onClick={() => {
+                            const pName = p.product_name || 'สินค้านี้';
+                            const sName = p.store_name || '-';
                             showConfirm({
-                              title: 'ยืนยันการลบสินค้า',
-                              message: `คุณแน่ใจหรือไม่ว่าต้องการลบรายการ "${p.product_name || 'สินค้านี้'}" ออกจากตะกร้า?`,
-                              confirmText: 'ยืนยันการลบ',
+                              title: 'คุณต้องการลบสินค้านี้ออกจากตะกร้าหรือไม่?',
+                              message: `ชื่อสินค้า : ${pName}\nร้านค้า : ${sName}`,
+                              confirmText: 'ยืนยัน',
+                              cancelText: 'ยกเลิก',
                               confirmColor: 'red',
                               onConfirm: () => handleRemoveItem(item.id),
                             });

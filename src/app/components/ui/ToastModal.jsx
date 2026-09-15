@@ -119,9 +119,9 @@ export function ToastModal() {
               <h4 className="text-sm font-bold text-stone-800">
                 {confirmConfig.title || 'ยืนยันการทำรายการ'}
               </h4>
-              <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
+              <div className="text-xs text-stone-600 mt-2 leading-relaxed whitespace-pre-line">
                 {confirmConfig.message}
-              </p>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100">

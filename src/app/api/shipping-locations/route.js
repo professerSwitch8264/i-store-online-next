@@ -1,6 +1,6 @@
 // src/app/api/shipping-locations/route.js
 import { NextResponse } from 'next/server';
-import { getDbPool } from '@/app/lib/db';
+import { getDbPool } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 

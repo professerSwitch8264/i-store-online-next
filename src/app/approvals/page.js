@@ -23,7 +23,7 @@ import { AccountSidebar } from '@/app/components/layout/AccountSidebar';
 import { useApprovalStore, REJECT_REASONS } from '@/app/stores/useApprovalStore';
 import { useToastStore } from '@/app/stores/useToastStore';
 import { OrderSearchBox } from '@/app/components/orders/OrderSearchBox';
-import { getThumbnailUrl, formatThaiDateTime } from '@/app/lib/utils';
+import { getThumbnailUrl, formatThaiDateTime } from '@/lib/utils';
 import { MdViewKanban } from 'react-icons/md';
 import {
   RiImageLine,
@@ -205,32 +205,32 @@ export default function ApprovalsPage() {
       case 'P':
       case 'W':
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-[#1976d2] shadow-2xs whitespace-nowrap">
+          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#1976d2] shadow-2xs whitespace-nowrap">
             กำลังรออนุมัติ
           </span>
         );
       case 'A':
       case 'X':
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-[#2e7d32] shadow-2xs whitespace-nowrap">
+          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#2e7d32] shadow-2xs whitespace-nowrap">
             อนุมัติแล้ว
           </span>
         );
       case 'R':
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-[#d32f2f] shadow-2xs whitespace-nowrap">
+          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#d32f2f] shadow-2xs whitespace-nowrap">
             ถูกปฏิเสธ
           </span>
         );
       case 'C':
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-[#757575] shadow-2xs whitespace-nowrap">
+          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#757575] shadow-2xs whitespace-nowrap">
             ยกเลิกรายการ
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-stone-500 whitespace-nowrap">
+          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-stone-500 whitespace-nowrap">
             {s}
           </span>
         );
@@ -263,11 +263,11 @@ export default function ApprovalsPage() {
 
         {/* การ์ดตารางรายการรออนุมัติหลัก */}
         <div className="flex-1 min-w-0 w-full">
-          <div className="bg-white rounded-lg shadow-sm border border-[#D3D3D3]/80 flex flex-col overflow-hidden">
+          <div className="bg-white rounded-lg shadow-sm border border-[#D3D3D3]/80 flex flex-col">
             {/* ─────────────────────────────────────────────────────────────
                 ส่วนที่ 1: หัวข้อหน้า และปุ่มรีเฟรช (Pinned Header)
                 ───────────────────────────────────────────────────────────── */}
-            <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white">
+            <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white rounded-t-lg">
               <div>
                 <h1 className="text-base sm:text-lg font-bold text-[#2B2F38]">
                   รายการรออนุมัติ
@@ -359,8 +359,8 @@ export default function ApprovalsPage() {
                 </div>
               ) : (
                 <div
-                  style={{ maxHeight: 'calc((100vh / 1.1) - 270px)' }}
-                  className="overflow-x-auto overflow-y-auto"
+                  style={{ maxHeight: 'calc(100vh - 280px)' }}
+                  className="overflow-x-auto overflow-y-auto w-full max-w-full"
                 >
                   <table className="w-full text-left text-xs sm:text-sm border-collapse">
                     <thead className="bg-white border-b border-stone-200 text-xs font-normal text-[#363636]/80 select-none sticky top-0 z-10 shadow-2xs">
@@ -500,7 +500,7 @@ export default function ApprovalsPage() {
             {/* ─────────────────────────────────────────────────────────────
                 ส่วนที่ 4: แถบ Pagination ด้านล่าง
                 ───────────────────────────────────────────────────────────── */}
-            <div className="border-t border-[#D3D3D3] px-4 py-2.5 flex items-center justify-end gap-6 text-xs text-[#363636]/80 select-none bg-white shrink-0">
+            <div className="border-t border-[#D3D3D3] px-4 py-2.5 flex items-center justify-end gap-6 text-xs text-[#363636]/80 select-none bg-white shrink-0 rounded-b-lg">
               {/* Rows per page Selector */}
               <div className="flex items-center gap-2">
                 <span className="font-normal text-[#363636]/70">Rows per page:</span>
@@ -531,7 +531,7 @@ export default function ApprovalsPage() {
               </div>
 
               {/* Range Info: e.g. 1–10 of 16 */}
-              <div className="font-normal text-[#363636]/90 min-w-[80px] text-center">
+              <div className="font-normal text-[#363636]/90 min-w-[5rem] text-center">
                 {totalCount === 0 ? '0 of 0' : `${startIndex}–${endIndex} of ${totalCount}`}
               </div>
 

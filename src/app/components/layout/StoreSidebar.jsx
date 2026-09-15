@@ -34,7 +34,7 @@ import {
 import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useStoreOrderStore } from '@/app/stores/useStoreOrderStore';
 import { useStorePreparationStore } from '@/app/stores/useStorePreparationStore';
-import { getStoreLogoUrl } from '@/app/lib/utils';
+import { getStoreLogoUrl } from '@/lib/utils';
 
 export function StoreSidebar() {
   const pathname = usePathname();

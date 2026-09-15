@@ -27,7 +27,7 @@ import { useAuth } from '@/app/components/auth/AuthProvider';
 import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useStoreOrderStore, STORE_ORDER_TABS } from '@/app/stores/useStoreOrderStore';
 import { OrderSearchBox } from '@/app/components/orders/OrderSearchBox';
-import { getThumbnailUrl, formatThaiDateTime } from '@/app/lib/utils';
+import { getThumbnailUrl, formatThaiDateTime } from '@/lib/utils';
 import { MdViewKanban } from 'react-icons/md';
 import {
   RiImageLine,
@@ -38,7 +38,16 @@ import {
   RiShieldCheckLine,
   RiBox3Line,
   RiTimeLine,
+  RiFileList3Line,
+  RiUserLine,
+  RiBuildingLine,
+  RiTruckLine,
+  RiShoppingBag3Line,
+  RiCalendarEventLine,
+  RiCalendarLine,
+  RiReceiptLine,
 } from 'react-icons/ri';
+import { OrderStatusTimeline } from '@/app/components/orders/OrderStatusTimeline';
 
 /**
  * OrderItemThumbnail
@@ -249,49 +258,55 @@ export default function StoreOrdersPage() {
   };
 
   // ป้ายสถานะแบบ Pill Button (ขนาด w-[130px] สไตล์เดียวกับหน้า /orders)
-  const renderStatusPill = (status) => {
+  const renderStatusPill = (status, order = null) => {
     const s = (status || 'W').toUpperCase();
+    const wasApproved = Boolean(order?.approved_by || order?.approved_by_name);
+
     switch (s) {
       case 'W':
       case 'P':
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-[#1976d2] shadow-2xs whitespace-nowrap">
+          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#1976d2] shadow-2xs whitespace-nowrap">
             กำลังรออนุมัติ
           </span>
         );
       case 'X':
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-[#ed6c02] shadow-2xs whitespace-nowrap">
+          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#ed6c02] shadow-2xs whitespace-nowrap">
             กำลังเตรียมสินค้า
           </span>
         );
       case 'S':
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-[#0288d1] shadow-2xs whitespace-nowrap">
+          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#0288d1] shadow-2xs whitespace-nowrap">
             รอยืนยันการรับสินค้า
           </span>
         );
       case 'D':
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-[#2e7d32] shadow-2xs whitespace-nowrap">
+          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#2e7d32] shadow-2xs whitespace-nowrap">
             ดำเนินการเสร็จสิ้น
           </span>
         );
       case 'R':
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-[#d32f2f] shadow-2xs whitespace-nowrap">
-            ถูกปฏิเสธ
-          </span>
+          <div className="inline-flex flex-col items-center gap-1">
+            <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#d32f2f] shadow-2xs whitespace-nowrap">
+              ถูกปฏิเสธ
+            </span>
+          </div>
         );
       case 'C':
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-[#757575] shadow-2xs whitespace-nowrap">
-            ยกเลิกรายการ
-          </span>
+          <div className="inline-flex flex-col items-center gap-1">
+            <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-[#757575] shadow-2xs whitespace-nowrap">
+              ยกเลิกรายการ
+            </span>
+          </div>
         );
       default:
         return (
-          <span className="inline-flex items-center justify-center w-[130px] py-1 rounded-full text-xs font-normal text-white bg-stone-500 whitespace-nowrap">
+          <span className="inline-flex items-center justify-center w-[8.125rem] py-1 rounded-full text-xs font-normal text-white bg-stone-500 whitespace-nowrap">
             {status}
           </span>
         );
@@ -321,11 +336,11 @@ export default function StoreOrdersPage() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-[#D3D3D3]/80 flex flex-col overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-[#D3D3D3]/80 flex flex-col">
       {/* ─────────────────────────────────────────────────────────────
           ส่วนที่ 1: หัวข้อหน้า และปุ่มรีเฟรช (Header Bar)
           ───────────────────────────────────────────────────────────── */}
-      <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white">
+      <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white rounded-t-lg">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-base sm:text-lg font-bold text-[#2B2F38]">
@@ -380,17 +395,15 @@ export default function StoreOrdersPage() {
                 onClick={() => {
                   setSelectedTab(tab.id, token, storeId);
                 }}
-                className={`px-3 py-1.5 rounded-md font-medium transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                  isActive
-                    ? 'bg-[#2B2F38] text-white shadow-2xs'
-                    : 'text-stone-600 hover:text-[#2B2F38] hover:bg-stone-200/60'
-                }`}
+                className={`px-3 py-1.5 rounded-md font-medium transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${isActive
+                  ? 'bg-[#2B2F38] text-white shadow-2xs'
+                  : 'text-stone-600 hover:text-[#2B2F38] hover:bg-stone-200/60'
+                  }`}
               >
                 <span>{tab.label}</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                    isActive ? 'bg-[#EB6E3E] text-white' : 'bg-stone-200 text-stone-700'
-                  }`}
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${isActive ? 'bg-[#EB6E3E] text-white' : 'bg-stone-200 text-stone-700'
+                    }`}
                 >
                   {count}
                 </span>
@@ -451,10 +464,10 @@ export default function StoreOrdersPage() {
           </div>
         ) : (
           <div
-            style={{ maxHeight: 'calc((100vh / 1.1) - 310px)' }}
-            className="overflow-x-auto overflow-y-auto"
+            style={{ maxHeight: 'calc(100vh - 360px)' }}
+            className="overflow-x-auto overflow-y-auto w-full max-w-full"
           >
-            <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[760px]">
+            <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[47.5rem]">
               <thead className="bg-white border-b border-stone-200 text-xs font-normal text-[#363636]/80 select-none sticky top-0 z-10 shadow-2xs">
                 <tr>
                   {/* คอลัมน์ Action ดูรายละเอียด */}
@@ -593,7 +606,7 @@ export default function StoreOrdersPage() {
 
                       {/* 7. สถานะการสั่งซื้อ */}
                       <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
-                        {renderStatusPill(ord.status)}
+                        {renderStatusPill(ord.status, ord)}
                       </td>
                     </tr>
                   );
@@ -607,7 +620,7 @@ export default function StoreOrdersPage() {
       {/* ─────────────────────────────────────────────────────────────
           ส่วนที่ 4: แถบ Pagination ด้านล่าง
           ───────────────────────────────────────────────────────────── */}
-      <div className="border-t border-[#D3D3D3] px-3 sm:px-4 py-2.5 flex items-center justify-between sm:justify-end gap-2 sm:gap-6 text-xs text-[#363636]/80 select-none bg-white shrink-0 flex-wrap sm:flex-nowrap">
+      <div className="border-t border-[#D3D3D3] px-3 sm:px-4 py-2.5 flex items-center justify-between sm:justify-end gap-2 sm:gap-6 text-xs text-[#363636]/80 select-none bg-white shrink-0 flex-wrap sm:flex-nowrap rounded-b-lg">
         {/* Rows per page Selector */}
         <div className="flex items-center gap-2">
           <span className="font-normal text-[#363636]/70">Rows per page:</span>
@@ -640,7 +653,7 @@ export default function StoreOrdersPage() {
         </div>
 
         {/* Range Info: e.g. 1–10 of 16 */}
-        <div className="font-normal text-[#363636]/90 min-w-[80px] text-center">
+        <div className="font-normal text-[#363636]/90 min-w-[5rem] text-center">
           {totalCount === 0 ? '0 of 0' : `${startIndex}–${endIndex} of ${totalCount}`}
         </div>
 
@@ -705,7 +718,7 @@ export default function StoreOrdersPage() {
           ───────────────────────────────────────────────────────────── */}
       {selectedOrderForModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-fadeIn">
-          <div className="bg-white rounded-xs shadow-2xl border border-stone-300 max-w-2xl w-full max-h-[90vh] flex flex-col font-sans overflow-hidden">
+          <div className="bg-white rounded-xs shadow-2xl border border-stone-300 max-w-4xl w-full max-h-[90vh] flex flex-col font-sans overflow-hidden">
             {/* Header Modal */}
             <div className="px-6 py-4 border-b border-[#D3D3D3] bg-white flex items-center justify-between gap-4 shrink-0">
               <div>
@@ -719,68 +732,140 @@ export default function StoreOrdersPage() {
 
               {/* ป้ายสถานะมุมบนขวา */}
               <div className="shrink-0">
-                {renderStatusPill(selectedOrderForModal.status)}
+                {renderStatusPill(selectedOrderForModal.status, selectedOrderForModal)}
               </div>
             </div>
 
-            {/* Body Modal */}
-            <div className="p-6 space-y-4 text-xs sm:text-sm flex flex-col flex-1 min-h-0 overflow-hidden">
-              {/* ข้อมูลสรุป 6 ช่อง */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-stone-50 rounded-xs border border-stone-200 shrink-0">
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">ร้านค้า</span>
-                  <span className="text-xs font-medium text-[#363636]">{selectedOrderForModal.store_name}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">ผู้สั่งซื้อ</span>
-                  <span className="text-xs font-medium text-[#363636]">
-                    {selectedOrderForModal.fullname_th || selectedOrderForModal.owner}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">ฝ่าย / แผนก</span>
-                  <span className="text-xs font-medium text-[#363636]">
-                    {selectedOrderForModal.department_th || selectedOrderForModal.department || '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">สถานที่จัดส่ง</span>
-                  <span className="text-xs font-medium text-[#363636]">{selectedOrderForModal.shipping_location}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">รูปแบบการสั่งซื้อ</span>
-                  <span className="text-xs font-medium text-[#363636]">
-                    {selectedOrderForModal.reserve_flag === 'Y' ? 'สั่งล่วงหน้า' : 'มาตรฐาน'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">ยอดรวมสุทธิ</span>
-                  {modalComputedTotals.hasAdjustments ? (
-                    <div className="flex flex-col">
-                      <div className="flex items-baseline gap-1.5 flex-wrap">
-                        <span className="text-xs text-stone-400 line-through">
-                          ฿{modalComputedTotals.originalTotalPrice.toLocaleString('th-TH', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </span>
-                        <span className="text-sm font-semibold text-[#1F6F78]">
-                          ฿{modalComputedTotals.totalPrice.toLocaleString('th-TH', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
+            {/* Body Modal (ไม่มี Scroll บนการ์ดใหญ่) */}
+            <div className="p-5 space-y-3.5 text-xs sm:text-sm flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* ส่วนข้อมูลด้านบน: แบ่ง 2 คอลัมน์ 50 / 50 (ข้อมูลคำสั่งซื้อ ซ้าย | ประวัติสถานะ ขวา - ความสูงเท่ากันเสมอและเท่ากับออเดอร์ 5 สเต็ป) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0 items-stretch min-h-[14.0625rem]">
+                {/* ฝั่งซ้าย (50%): ข้อมูลคำสั่งซื้อ (ฟิลแบบบิล/ใบเสร็จ) */}
+                <div className="p-3 bg-[#FCFBF7] rounded-sm border border-stone-300/80 shadow-2xs text-xs flex flex-col h-full font-sans justify-between relative overflow-hidden">
+                  {/* แถบตกแต่งหัวบิล */}
+                  <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-stone-300 shrink-0 select-none">
+                    <div className="flex items-center gap-1.5 text-[#2B2F38]">
+                      <RiReceiptLine className="w-4 h-4 text-stone-600" />
+                      <h4 className="font-bold text-xs uppercase tracking-wide">
+                        ใบสรุปคำสั่งซื้อ
+                      </h4>
+                    </div>
+                    <span className="font-mono text-[11px] text-stone-500 font-semibold tracking-wider">
+                      #{selectedOrderForModal.order_no || selectedOrderForModal.order_id}
+                    </span>
+                  </div>
+
+                  {/* รายการ Key-Value List แบบบิล */}
+                  <div className="relative py-1.5 flex-1 flex flex-col justify-around min-h-0 space-y-1">
+                    {/* วันที่สั่งซื้อ */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiCalendarLine className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">วันที่สั่งซื้อ</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] text-right">
+                        {formatThaiDateTime(selectedOrderForModal.order_date)}
+                      </span>
+                    </div>
+
+                    {/* ร้านค้า */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiStore2Line className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">ร้านค้า</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] truncate text-right max-w-[65%]" title={selectedOrderForModal.store_name}>
+                        {selectedOrderForModal.store_name || '-'}
+                      </span>
+                    </div>
+
+                    {/* ผู้สั่งซื้อ */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiUserLine className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">ผู้สั่งซื้อ</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] truncate text-right max-w-[65%]" title={selectedOrderForModal.fullname_th || selectedOrderForModal.owner}>
+                        {selectedOrderForModal.fullname_th || selectedOrderForModal.owner || '-'}
+                      </span>
+                    </div>
+
+                    {/* ฝ่าย / แผนก */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiBuildingLine className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">ฝ่าย / แผนก</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] truncate text-right max-w-[65%]" title={selectedOrderForModal.department_th || selectedOrderForModal.department || '-'}>
+                        {selectedOrderForModal.department_th || selectedOrderForModal.department || '-'}
+                      </span>
+                    </div>
+
+                    {/* สถานที่จัดส่ง */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiTruckLine className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">สถานที่จัดส่ง</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] truncate text-right max-w-[65%]" title={selectedOrderForModal.shipping_location}>
+                        {selectedOrderForModal.shipping_location || '-'}
+                      </span>
+                    </div>
+
+                    {/* รูปแบบการสั่งซื้อ */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiCalendarEventLine className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">รูปแบบการสั่งซื้อ</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] truncate text-right max-w-[65%]">
+                        {selectedOrderForModal.reserve_flag === 'Y' || selectedOrderForModal.reserve_flag === true || selectedOrderForModal.reserve_flag === '1' ? 'สั่งล่วงหน้า' : 'มาตรฐาน'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* แถบสรุปยอดเงินด้านล่างสุดสไตล์ท้ายบิล */}
+                  <div className="pt-2 border-t border-dashed border-stone-300 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <RiShoppingBag3Line className="w-3.5 h-3.5 text-stone-500" />
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11.5px] text-stone-700 font-semibold">ยอดรวมสุทธิ</span>
+                        <span className="text-[11px] text-stone-400 font-normal">
+                          (บาท)
                         </span>
                       </div>
                     </div>
-                  ) : (
-                    <span className="text-sm font-medium text-[#363636]">
-                      ฿{modalComputedTotals.totalPrice.toLocaleString('th-TH', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                  )}
+
+                    <div className="text-right">
+                      {modalComputedTotals.hasAdjustments ? (
+                        <div className="flex items-baseline gap-1.5 justify-end">
+                          <span className="text-[11px] text-stone-400 line-through">
+                            {modalComputedTotals.originalTotalPrice.toLocaleString('th-TH', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })} บาท
+                          </span>
+                          <span className="text-sm font-bold text-[#1F6F78]">
+                            {modalComputedTotals.totalPrice.toLocaleString('th-TH', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })} บาท
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm font-bold text-[#1F6F78]">
+                          {modalComputedTotals.totalPrice.toLocaleString('th-TH', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })} บาท
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                {/* ฝั่งขวา (50%): ประวัติและสถานะคำสั่งซื้อ */}
+                <OrderStatusTimeline order={selectedOrderForModal} className="h-full mt-0" />
               </div>
 
               {/* การ์ดตารางสินค้า */}
@@ -943,87 +1028,6 @@ export default function StoreOrdersPage() {
                   </table>
                 </div>
               </div>
-
-              {/* รายการประวัติการดำเนินงาน (Activity History Trail) */}
-              {((selectedOrderForModal.approved_by_name || selectedOrderForModal.approved_by) ||
-                (selectedOrderForModal.prepared_by_name || selectedOrderForModal.prepared_by) ||
-                ['R', 'C'].includes(selectedOrderForModal.status) ||
-                selectedOrderForModal.remark) && (
-                <div className="space-y-2 mt-3 shrink-0">
-                  {/* 1. ประวัติการอนุมัติคำสั่งซื้อ */}
-                  {(selectedOrderForModal.approved_by_name || selectedOrderForModal.approved_by) && (
-                    <div className="p-3.5 bg-stone-50 rounded-xs border border-stone-200 space-y-1.5 text-xs font-sans">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-stone-900">
-                          <span className="font-semibold">
-                            {selectedOrderForModal.approved_by_name || selectedOrderForModal.approved_by}
-                          </span>{' '}
-                          <span className="font-normal text-stone-500">-</span>{' '}
-                          <span className="font-normal text-stone-700">อนุมัติคำสั่งซื้อ</span>
-                        </div>
-                        {selectedOrderForModal.approved_date && (
-                          <span className="text-stone-500 font-normal shrink-0 text-[11px] sm:text-xs">
-                            {formatThaiDateTime(selectedOrderForModal.approved_date)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 2. ประวัติการจัดเตรียมสินค้า */}
-                  {(selectedOrderForModal.prepared_by_name || selectedOrderForModal.prepared_by) && (
-                    <div className="p-3.5 bg-stone-50 rounded-xs border border-stone-200 space-y-1.5 text-xs font-sans">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-stone-900">
-                          <span className="font-semibold">
-                            {selectedOrderForModal.prepared_by_name || selectedOrderForModal.prepared_by}
-                          </span>{' '}
-                          <span className="font-normal text-stone-500">-</span>{' '}
-                          <span className="font-normal text-stone-700">จัดเตรียมสินค้า</span>
-                        </div>
-                        {selectedOrderForModal.prepared_date && (
-                          <span className="text-stone-500 font-normal shrink-0 text-[11px] sm:text-xs">
-                            {formatThaiDateTime(selectedOrderForModal.prepared_date)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 3. ประวัติการปฏิเสธหรือยกเลิกคำสั่งซื้อ */}
-                  {(['R', 'C'].includes(selectedOrderForModal.status) || selectedOrderForModal.remark) && (
-                    <div className="p-3.5 bg-stone-50 rounded-xs border border-stone-200 space-y-1.5 text-xs font-sans">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-stone-900">
-                          <span className="font-semibold">
-                            {selectedOrderForModal.response_by_name || selectedOrderForModal.response_by || 'ผู้ดำเนินการ'}
-                          </span>{' '}
-                          <span className="font-normal text-stone-500">-</span>{' '}
-                          <span className="font-normal text-stone-700">
-                            {selectedOrderForModal.status === 'R'
-                              ? 'ปฏิเสธคำขอ'
-                              : selectedOrderForModal.status === 'C'
-                              ? 'ยกเลิกคำขอ'
-                              : 'บันทึกหมายเหตุ'}
-                          </span>
-                        </div>
-                        <span className="text-stone-500 font-normal shrink-0 text-[11px] sm:text-xs">
-                          {formatThaiDateTime(selectedOrderForModal.response_date)}
-                        </span>
-                      </div>
-
-                      {selectedOrderForModal.remark && (
-                        <div className="flex items-start gap-1.5 text-stone-700 font-normal">
-                          <RiChat1Line className="w-4 h-4 mt-0.5 shrink-0 text-stone-500" />
-                          <span className="break-words leading-relaxed text-stone-900">
-                            {(selectedOrderForModal.remark || '').replace(/^(Rejected|Cancelled):\s*/i, '')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Footer Modal: ปุ่มปิดหน้าต่าง (สไตล์ B) */}

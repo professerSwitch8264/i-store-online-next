@@ -70,16 +70,23 @@ export const useCartStore = create((set, get) => ({
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'เพิ่มสินค้าไม่สำเร็จ');
+      if (!res.ok || !data.success) {
+        return {
+          success: false,
+          error: data.error || 'เพิ่มสินค้าไม่สำเร็จ',
+          code: data.code,
+          stock: data.stock,
+        };
       }
 
       // รีเฟรชข้อมูลตะกร้าใหม่ทันทีเพื่ออัปเดต Badge และ Popover
       await get().fetchCart();
-      return data;
+      return { success: true, data };
     } catch (err) {
-      console.error('addItem error:', err);
-      throw err;
+      return {
+        success: false,
+        error: err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์',
+      };
     }
   },
 

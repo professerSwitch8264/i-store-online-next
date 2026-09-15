@@ -1,7 +1,7 @@
 // src/app/api/stores/image/route.js
 import { NextResponse } from 'next/server';
-import { getDbPool, sql } from '@/app/lib/db';
-import { verifyApiAuth } from '@/app/lib/serverAuth';
+import { getDbPool, sql } from '@/lib/db';
+import { verifyApiAuth } from '@/lib/serverAuth';
 import { Client } from 'minio';
 import crypto from 'crypto';
 

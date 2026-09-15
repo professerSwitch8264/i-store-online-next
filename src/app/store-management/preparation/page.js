@@ -33,7 +33,7 @@ import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useStorePreparationStore, STORE_CANCEL_REASONS } from '@/app/stores/useStorePreparationStore';
 import { useToastStore } from '@/app/stores/useToastStore';
 import { OrderSearchBox } from '@/app/components/orders/OrderSearchBox';
-import { getThumbnailUrl, formatThaiDateTime } from '@/app/lib/utils';
+import { getThumbnailUrl, formatThaiDateTime } from '@/lib/utils';
 import { MdViewKanban } from 'react-icons/md';
 import {
   RiImageLine,
@@ -48,7 +48,15 @@ import {
   RiShieldCheckLine,
   RiBox3Line,
   RiTimeLine,
+  RiFileList3Line,
+  RiUserLine,
+  RiBuildingLine,
+  RiTruckLine,
+  RiCalendarEventLine,
+  RiCalendarLine,
+  RiReceiptLine,
 } from 'react-icons/ri';
+import { OrderStatusTimeline } from '@/app/components/orders/OrderStatusTimeline';
 
 /**
  * OrderItemThumbnail: แสดงรูปภาพสินค้าขนาดย่อพร้อม Fallback
@@ -318,11 +326,11 @@ export default function StorePreparationPage() {
   );
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-[#D3D3D3]/80 flex flex-col overflow-hidden font-sans">
+    <div className="bg-white rounded-lg shadow-sm border border-[#D3D3D3]/80 flex flex-col font-sans">
       {/* ─────────────────────────────────────────────────────────────
           ส่วนที่ 1: หัวข้อหน้า และปุ่มรีเฟรช (Pinned Header สไตล์ Approvals)
           ───────────────────────────────────────────────────────────── */}
-      <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white">
+      <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-[#D3D3D3] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white rounded-t-lg">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-base sm:text-lg font-bold text-[#2B2F38]">
@@ -330,7 +338,7 @@ export default function StorePreparationPage() {
             </h1>
           </div>
           <p className="text-xs text-[#363636]/70 mt-0.5 font-normal">
-            ตรวจสอบและจัดเตรียมสินค้าตามคำสั่งซื้อของร้านค้า 
+            ตรวจสอบและจัดเตรียมสินค้าตามคำสั่งซื้อของร้านค้า
           </p>
         </div>
 
@@ -415,8 +423,8 @@ export default function StorePreparationPage() {
           </div>
         ) : (
           <div
-            style={{ maxHeight: 'calc((100vh / 1.1) - 310px)' }}
-            className="overflow-x-auto overflow-y-auto"
+            style={{ maxHeight: 'calc(100vh - 280px)' }}
+            className="overflow-x-auto overflow-y-auto w-full max-w-full"
           >
             <table className="w-full text-left text-xs sm:text-sm border-collapse">
               <thead className="bg-white border-b border-stone-200 text-xs font-normal text-[#363636]/80 select-none sticky top-0 z-10 shadow-2xs">
@@ -554,7 +562,7 @@ export default function StorePreparationPage() {
       {/* ─────────────────────────────────────────────────────────────
           ส่วนที่ 4: แถบ Pagination ด้านล่าง
           ───────────────────────────────────────────────────────────── */}
-      <div className="border-t border-[#D3D3D3] px-4 py-2.5 flex items-center justify-end gap-6 text-xs text-[#363636]/80 select-none bg-white shrink-0">
+      <div className="border-t border-[#D3D3D3] px-4 py-2.5 flex items-center justify-end gap-6 text-xs text-[#363636]/80 select-none bg-white shrink-0 rounded-b-lg">
         {/* Rows per page Selector */}
         <div className="flex items-center gap-2">
           <span className="font-normal text-[#363636]/70">Rows per page:</span>
@@ -644,9 +652,8 @@ export default function StorePreparationPage() {
       {selectedOrderForModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-fadeIn">
           <div
-            className={`bg-white rounded-xs shadow-2xl border border-stone-300 w-full ${
-              isPreparationMode ? 'max-w-4xl' : 'max-w-2xl'
-            } max-h-[90vh] flex flex-col font-sans overflow-hidden transition-all`}
+            className={`bg-white rounded-xs shadow-2xl border border-stone-300 w-full ${isPreparationMode ? 'max-w-4xl' : 'max-w-3xl'
+              } max-h-[90vh] flex flex-col font-sans overflow-hidden transition-all`}
           >
             {/* Header Modal */}
             <div className="px-6 py-4 border-b border-[#D3D3D3] bg-white flex items-center justify-between gap-4 shrink-0">
@@ -671,49 +678,119 @@ export default function StorePreparationPage() {
               </button>
             </div>
 
-            {/* Body Modal */}
-            <div className="p-6 space-y-4 text-xs sm:text-sm flex flex-col flex-1 min-h-0 overflow-hidden">
-              {/* ข้อมูลสรุป 6 ช่อง */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-stone-50 rounded-xs border border-stone-200 shrink-0">
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">ร้านค้า</span>
-                  <span className="text-xs font-medium text-[#363636]">
-                    {selectedOrderForModal.store_name || currentStore?.store_name}
-                  </span>
+            {/* Body Modal (ไม่มี Scroll บนการ์ดใหญ่) */}
+            <div className="p-5 space-y-3.5 text-xs sm:text-sm flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* ส่วนข้อมูลด้านบน: แบ่ง 2 คอลัมน์ 50 / 50 (ข้อมูลคำสั่งซื้อ ซ้าย | ประวัติสถานะ ขวา - ความสูงเท่ากันเสมอและเท่ากับออเดอร์ 5 สเต็ป) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0 items-stretch min-h-[14.0625rem]">
+                {/* ฝั่งซ้าย (50%): ข้อมูลคำสั่งซื้อ (ฟิลแบบบิล/ใบเสร็จ) */}
+                <div className="p-3 bg-[#FCFBF7] rounded-sm border border-stone-300/80 shadow-2xs text-xs flex flex-col h-full font-sans justify-between relative overflow-hidden">
+                  {/* แถบตกแต่งหัวบิล */}
+                  <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-stone-300 shrink-0 select-none">
+                    <div className="flex items-center gap-1.5 text-[#2B2F38]">
+                      <RiReceiptLine className="w-4 h-4 text-stone-600" />
+                      <h4 className="font-bold text-xs uppercase tracking-wide">
+                        ใบสรุปคำสั่งซื้อ
+                      </h4>
+                    </div>
+                    <span className="font-mono text-[11px] text-stone-500 font-semibold tracking-wider">
+                      #{selectedOrderForModal.order_no || selectedOrderForModal.order_id}
+                    </span>
+                  </div>
+
+                  {/* รายการ Key-Value List แบบบิล */}
+                  <div className="relative py-1.5 flex-1 flex flex-col justify-around min-h-0 space-y-1">
+                    {/* วันที่สั่งซื้อ */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiCalendarLine className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">วันที่สั่งซื้อ</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] text-right">
+                        {formatThaiDateTime(selectedOrderForModal.order_date)}
+                      </span>
+                    </div>
+
+                    {/* ร้านค้า */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiStore2Line className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">ร้านค้า</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] truncate text-right max-w-[65%]" title={selectedOrderForModal.store_name || currentStore?.store_name}>
+                        {selectedOrderForModal.store_name || currentStore?.store_name || '-'}
+                      </span>
+                    </div>
+
+                    {/* ผู้สั่งซื้อ */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiUserLine className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">ผู้สั่งซื้อ</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] truncate text-right max-w-[65%]" title={selectedOrderForModal.fullname_th || selectedOrderForModal.fullname || selectedOrderForModal.owner}>
+                        {selectedOrderForModal.fullname_th || selectedOrderForModal.fullname || selectedOrderForModal.owner || '-'}
+                      </span>
+                    </div>
+
+                    {/* ฝ่าย / แผนก */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiBuildingLine className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">ฝ่าย / แผนก</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] truncate text-right max-w-[65%]" title={selectedOrderForModal.department_th || selectedOrderForModal.department || selectedOrderForModal.owner_department_th || '-'}>
+                        {selectedOrderForModal.department_th || selectedOrderForModal.department || selectedOrderForModal.owner_department_th || '-'}
+                      </span>
+                    </div>
+
+                    {/* สถานที่จัดส่ง */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiTruckLine className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">สถานที่จัดส่ง</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] truncate text-right max-w-[65%]" title={selectedOrderForModal.shipping_location || '-'}>
+                        {selectedOrderForModal.shipping_location || '-'}
+                      </span>
+                    </div>
+
+                    {/* รูปแบบการสั่งซื้อ */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1 text-stone-500 shrink-0">
+                        <RiCalendarEventLine className="w-3.5 h-3.5 text-stone-400" />
+                        <span className="text-[11px]">รูปแบบการสั่งซื้อ</span>
+                      </div>
+                      <span className="font-medium text-[#2B2F38] truncate text-right max-w-[65%]">
+                        {(selectedOrderForModal.reserve_flag === 'Y' || selectedOrderForModal.reserve_flag === true || selectedOrderForModal.reserve_flag === '1') ? 'สั่งล่วงหน้า' : 'มาตรฐาน'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* แถบสรุปยอดเงินด้านล่างสุดสไตล์ท้ายบิล */}
+                  <div className="pt-2 border-t border-dashed border-stone-300 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <RiShoppingBag3Line className="w-3.5 h-3.5 text-stone-500" />
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11.5px] text-stone-700 font-semibold">ยอดรวมสุทธิ</span>
+                        <span className="text-[11px] text-stone-400 font-normal">
+                          (บาท)
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-[#1F6F78]">
+                        {selectedOrderForModal.total_price.toLocaleString('th-TH', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })} บาท
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">ผู้สั่งซื้อ</span>
-                  <span className="text-xs font-medium text-[#363636]">
-                    {selectedOrderForModal.fullname_th || selectedOrderForModal.fullname || selectedOrderForModal.owner}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">ฝ่าย / แผนก</span>
-                  <span className="text-xs font-medium text-[#363636]">
-                    {selectedOrderForModal.department_th || selectedOrderForModal.department || selectedOrderForModal.owner_department_th || '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">สถานที่จัดส่ง</span>
-                  <span className="text-xs font-medium text-[#363636]">
-                    {selectedOrderForModal.shipping_location || '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">รูปแบบการสั่งซื้อ</span>
-                  <span className="text-xs font-medium text-[#363636]">
-                    {(selectedOrderForModal.reserve_flag === 'Y' || selectedOrderForModal.reserve_flag === true || selectedOrderForModal.reserve_flag === '1') ? 'สั่งล่วงหน้า' : 'มาตรฐาน'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-[#363636]/60 block font-normal">ยอดรวมสุทธิ</span>
-                  <span className="text-sm font-medium text-[#363636]">
-                    ฿{selectedOrderForModal.total_price.toLocaleString('th-TH', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
+
+                {/* ฝั่งขวา (50%): ประวัติและสถานะคำสั่งซื้อ */}
+                <OrderStatusTimeline order={selectedOrderForModal} className="h-full mt-0" />
               </div>
 
               {/* การ์ดตารางสินค้า */}
@@ -948,28 +1025,6 @@ export default function StorePreparationPage() {
                   </table>
                 </div>
               </div>
-
-              {/* รายการประวัติการดำเนินงาน (Activity History Trail) */}
-              {(selectedOrderForModal.approved_by_name || selectedOrderForModal.approved_by) && (
-                <div className="space-y-2 mt-3 shrink-0">
-                  <div className="p-3.5 bg-stone-50 rounded-xs border border-stone-200 space-y-1.5 text-xs font-sans">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-stone-900">
-                        <span className="font-semibold">
-                          {selectedOrderForModal.approved_by_name || selectedOrderForModal.approved_by}
-                        </span>{' '}
-                        <span className="font-normal text-stone-500">-</span>{' '}
-                        <span className="font-normal text-stone-700">อนุมัติคำสั่งซื้อ</span>
-                      </div>
-                      {selectedOrderForModal.approved_date && (
-                        <span className="text-stone-500 font-normal shrink-0 text-[11px] sm:text-xs">
-                          {formatThaiDateTime(selectedOrderForModal.approved_date)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Footer Modal */}
@@ -1011,8 +1066,8 @@ export default function StorePreparationPage() {
                       isAllItemsCancelled
                         ? 'ไม่สามารถจัดเตรียมได้เนื่องจากยกเลิกครบทุกรายการ'
                         : hasPreorderStockExceeded
-                        ? 'มียอดจัดเตรียมเกินจำนวนจริงในคลังพรีออเดอร์'
-                        : undefined
+                          ? 'มียอดจัดเตรียมเกินจำนวนจริงในคลังพรีออเดอร์'
+                          : undefined
                     }
                     className="px-5 py-2 bg-[#2e7d32] hover:bg-[#1b5e20] active:bg-[#144717] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium rounded-md shadow-2xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
                   >
@@ -1087,7 +1142,7 @@ export default function StorePreparationPage() {
         return (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/55 animate-fadeIn font-sans">
             <div className="bg-white rounded-xs shadow-2xl border border-stone-200 max-w-md w-full p-5 sm:p-6 space-y-4 max-h-[95vh] overflow-y-auto">
-              
+
               {/* ส่วนหัว: ชื่อสินค้า และยอดสั่งซื้อทั้งหมด */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0 pr-2">
@@ -1208,7 +1263,7 @@ export default function StorePreparationPage() {
                         ชำรุด
                       </div>
                       <div className="text-[11px] text-slate-400 mt-0.5">
-                        ชำรุดเสียหายระหว่างการจัดเตรียม 
+                        ชำรุดเสียหายระหว่างการจัดเตรียม
                       </div>
                     </div>
                   </div>
@@ -1334,11 +1389,10 @@ export default function StorePreparationPage() {
 
               {/* ข้อความตรวจสอบความครบถ้วน (Validation Message Bar) */}
               <div
-                className={`py-2.5 px-3 rounded-lg text-xs text-center flex items-center justify-start gap-1.5 transition-colors ${
-                  canSave
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/70 font-medium'
-                    : 'bg-slate-100 text-slate-600 font-normal'
-                }`}
+                className={`py-2.5 px-3 rounded-lg text-xs text-center flex items-center justify-start gap-1.5 transition-colors ${canSave
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/70 font-medium'
+                  : 'bg-slate-100 text-slate-600 font-normal'
+                  }`}
               >
                 {canSave ? (
                   <span>✓ จัดสรรยอดครบตามยอดสั่งซื้อเรียบร้อยแล้ว</span>
@@ -1361,11 +1415,10 @@ export default function StorePreparationPage() {
                   type="button"
                   onClick={applyAllocation}
                   disabled={!canSave}
-                  className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
-                    canSave
-                      ? 'bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black text-white cursor-pointer shadow-xs'
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  }`}
+                  className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 ${canSave
+                    ? 'bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black text-white cursor-pointer shadow-xs'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    }`}
                 >
                   <RiCheckLine className="w-4 h-4" />
                   <span>บันทึกยอด</span>

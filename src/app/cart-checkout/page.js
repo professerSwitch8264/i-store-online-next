@@ -10,8 +10,8 @@ import { useToastStore } from '@/app/stores/useToastStore';
 import { QuantityStepper } from '@/app/components/ui/QuantityStepper';
 import { shippingLocationService } from '@/app/services/shippingLocationService';
 import { useOrderStore } from '@/app/stores/useOrderStore';
-import { getThumbnailUrl, formatPrice } from '@/app/lib/utils';
-import { RiDeleteBin6Line, RiShoppingCart2Line, RiBookmarkLine, RiImageLine } from 'react-icons/ri';
+import { getThumbnailUrl, formatPrice } from '@/lib/utils';
+import { RiDeleteBin6Line, RiShoppingCart2Line, RiBookmarkLine, RiImageLine, RiAlertLine } from 'react-icons/ri';
 import { FaShop, FaShopLock } from 'react-icons/fa6';
 
 /**
@@ -234,10 +234,13 @@ function CartCheckoutContent() {
       }
       const targetItem = items.find((i) => i.id === itemId);
       if (targetItem) {
+        const pName = targetItem.product?.product_name || 'สินค้านี้';
+        const sName = targetItem.product?.store_name || '-';
         showConfirm({
-          title: 'ยืนยันการลบสินค้า',
-          message: `คุณแน่ใจหรือไม่ว่าต้องการลบรายการ "${targetItem.product?.product_name || 'สินค้านี้'}" ออกจากตะกร้า?`,
-          confirmText: 'ยืนยันการลบ',
+          title: 'คุณต้องการลบสินค้านี้ออกจากตะกร้าหรือไม่?',
+          message: `ชื่อสินค้า : ${pName}\nร้านค้า : ${sName}`,
+          confirmText: 'ยืนยัน',
+          cancelText: 'ยกเลิก',
           confirmColor: 'red',
           onConfirm: () => handleRemoveItem(itemId),
           onCancel: () => {
@@ -294,6 +297,15 @@ function CartCheckoutContent() {
   const handlePlaceOrder = async () => {
     if (filteredItems.length === 0) {
       showError('ไม่มีรายการสินค้าในตะกร้า');
+      return;
+    }
+
+    // 🛡️ ตรวจสอบว่ามีสินค้างดจำหน่ายในตะกร้าหรือไม่
+    const hasNotForSale = filteredItems.some(
+      (item) => String(item.product?.status || 'Y').trim().toUpperCase() === 'N'
+    );
+    if (hasNotForSale) {
+      showError('มีสินค้างดจำหน่ายอยู่ในตะกร้า กรุณาลบออกก่อนดำเนินการ');
       return;
     }
 
@@ -592,13 +604,13 @@ function CartCheckoutContent() {
                     {/* Header Columns: รูปภาพ | ชื่อสินค้า | ราคาต่อหน่วย | จำนวน | หน่วย | จำนวนเงิน (บาท) | แอคชั่น */}
                     <thead className="bg-stone-50/70 border-b border-[#D3D3D3]/80 text-[11px] sm:text-xs font-normal text-[#363636]/80">
                       <tr>
-                        <th className="w-[72px] py-3 px-3 text-center font-normal">รูปภาพ</th>
+                        <th className="w-[4.5rem] py-3 px-3 text-center font-normal">รูปภาพ</th>
                         <th className="py-3 px-3 font-normal">ชื่อสินค้า</th>
-                        <th className="w-[110px] py-3 px-3 text-center font-normal">ราคาต่อหน่วย</th>
-                        <th className="w-[150px] py-3 px-3 text-center font-normal">จำนวน</th>
-                        <th className="w-[85px] py-3 px-3 text-center font-normal">หน่วย</th>
-                        <th className="w-[130px] py-3 px-3 text-right font-normal">จำนวนเงิน (บาท)</th>
-                        <th className="w-[70px] py-3 px-3 text-center font-normal">แอคชั่น</th>
+                        <th className="w-[6.875rem] py-3 px-3 text-center font-normal">ราคาต่อหน่วย</th>
+                        <th className="w-[9.375rem] py-3 px-3 text-center font-normal">จำนวน</th>
+                        <th className="w-[5.3125rem] py-3 px-3 text-center font-normal">หน่วย</th>
+                        <th className="w-[8.125rem] py-3 px-3 text-right font-normal">จำนวนเงิน (บาท)</th>
+                        <th className="w-[4.375rem] py-3 px-3 text-center font-normal">แอคชั่น</th>
                       </tr>
                     </thead>
 
@@ -662,6 +674,14 @@ function CartCheckoutContent() {
                               <p className="font-normal text-xs sm:text-sm text-[#363636] leading-snug line-clamp-2">
                                 {product?.product_name || 'ไม่มีชื่อสินค้า'}
                               </p>
+                              {String(product?.status || 'Y').trim().toUpperCase() === 'N' && (
+                                <div className="mt-1">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-red-50 text-red-600 border border-red-200">
+                                    <RiAlertLine className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                                    <span>งดจำหน่าย</span>
+                                  </span>
+                                </div>
+                              )}
                             </td>
 
                             {/* 3. ราคาต่อหน่วย */}
@@ -702,10 +722,13 @@ function CartCheckoutContent() {
                                 type="button"
                                 disabled={Boolean(updatingItemIds[item.id])}
                                 onClick={() => {
+                                  const pName = product?.product_name || 'สินค้านี้';
+                                  const sName = product?.store_name || '-';
                                   showConfirm({
-                                    title: 'ยืนยันการลบสินค้า',
-                                    message: `คุณแน่ใจหรือไม่ว่าต้องการลบรายการ "${product?.product_name || 'สินค้านี้'}" ออกจากตะกร้า?`,
-                                    confirmText: 'ยืนยันการลบ',
+                                    title: 'คุณต้องการลบสินค้านี้ออกจากตะกร้าหรือไม่?',
+                                    message: `ชื่อสินค้า : ${pName}\nร้านค้า : ${sName}`,
+                                    confirmText: 'ยืนยัน',
+                                    cancelText: 'ยกเลิก',
                                     confirmColor: 'red',
                                     onConfirm: () => handleRemoveItem(item.id),
                                   });

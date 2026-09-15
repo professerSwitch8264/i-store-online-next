@@ -2,8 +2,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getThumbnailUrl, formatPrice } from '@/app/lib/utils';      
+import { getThumbnailUrl, formatPrice } from '@/lib/utils';
 import { useCartStore } from '@/app/stores/useCartStore';             
+import { useProductStore } from '@/app/stores/useProductStore';
 import { useToastStore } from '@/app/stores/useToastStore';
 import { QuantityStepper } from '@/app/components/ui/QuantityStepper'; 
 import { PreorderModal } from '@/app/components/product/PreorderModal'; 
@@ -30,6 +31,9 @@ export function ProductCard({ product }) {
   // addItem: ฟังก์ชันสั่งเพิ่มสินค้าลงตะกร้า ดึงมาจาก Zustand useCartStore
   const addItem = useCartStore((state) => state.addItem);
 
+  // updateProductStock: ฟังก์ชันอัปเดตสต็อกสินค้าทันทีเมื่อข้อมูลบนเซิร์ฟเวอร์เปลี่ยน
+  const updateProductStock = useProductStore((state) => state.updateProductStock);
+
   // showSuccess, showError: ฟังก์ชันแสดง Toast สำเร็จ และ Alert Modal จาก useToastStore
   const { showSuccess, showError } = useToastStore();
 
@@ -51,8 +55,11 @@ export function ProductCard({ product }) {
   // จำนวนสต็อกคงเหลือจริงในคลังสินค้า (ดึงมาจาก v_inventory)
   const stock = product.stock_quantity ?? 0;
 
+  // ตรวจสอบว่าสินค้างดจำหน่ายหรือไม่ (status = 'N')
+  const isNotForSale = String(product?.status || '').trim().toUpperCase() === 'N';
+
   // เอาไว้เช็คว่ากดเพิ่มสินค้าได้ไหม
-  const isAvailable = stock >= batchSize;
+  const isAvailable = stock >= batchSize && !isNotForSale;
 
   // คำนวณเพดานสูงสุดในการสั่งซื้อ (อิงตาม Order Limit และตัดเศษให้ลงตัวกับ Batch Size)
   const hasOrderLimit = typeof product.order_limit === 'number' && product.order_limit > 0;
@@ -89,27 +96,58 @@ export function ProductCard({ product }) {
 
   // 🛒 ฟังก์ชันเมื่อกดปุ่ม "ใส่ตะกร้าปกติ"
   const handleAddToCart = async () => {
+    if (isNotForSale) return;
+
     if (!isAvailable || isAdding) {
-      if (!isAvailable) {
-        // ถ้าสินค้าหมดสต็อก ให้เปิดหน้าต่าง Pre-order สั่งจองล่วงหน้าแทนอัตโนมัติ
-        setPreorderOpen(true);
-      }
       return;
     }
 
-    // ตรวจสอบว่าในตะกร้ามีสินค้านี้ครบเพดานสูงสุด หรือยอดที่จะเพิ่มใหม่เกินขีดจำกัดหรือไม่
-    // ตาม Easy Store: แสดง Toast "สินค้าในตะกร้ามีครบจำนวนจำกัดสูงสุดแล้ว" และ return ทันที ไม่ยิง API ไป Server
+    const unit = product.unit_name || 'ชิ้น';
+
+    // ตรวจสอบ Order Limit บน Client
+    if (hasOrderLimit) {
+      if (currentInCart >= orderLimit) {
+        showError(`สินค้าจำกัดการซื้อไม่เกิน ${orderLimit} ${unit} ต่อรายการ (ในตะกร้ามีครบแล้ว)`);
+        return;
+      }
+      if (currentInCart + quantity > orderLimit) {
+        showError(`สินค้าจำกัดการซื้อไม่เกิน ${orderLimit} ${unit} ต่อรายการ (ในตะกร้ามีแล้ว ${currentInCart} ${unit})`);
+        return;
+      }
+    }
+
+    // ตรวจสอบสต็อกคงเหลือบน Client
+    if (currentInCart >= stock) {
+      showError(`คุณได้เพิ่มสินค้าลงในตะกร้าครบตามจำนวนคงเหลือแล้ว (คงเหลือ ${stock} ${unit})`);
+      return;
+    }
+
+    if (currentInCart + quantity > stock) {
+      showError(`สินค้าคงเหลือในคลังไม่เพียงพอ (คงเหลือ ${stock} ${unit}, ในตะกร้ามีแล้ว ${currentInCart} ${unit})`);
+      return;
+    }
+
     if (currentInCart >= maxLimit || currentInCart + quantity > maxLimit) {
-      showError(`สินค้าจำกัดการซื้อไม่เกิน ${product.order_limit} ${product.unit_name || 'ชิ้น'} ต่อรายการ`);
+      showError(`จำนวนสินค้าที่สามารถสั่งซื้อได้ต้องไม่เกิน ${maxLimit} ${unit}`);
       return;
     }
 
     setIsAdding(true);
     try {
       // ส่งคำสั่งเพิ่มสินค้าลงตะกร้าแบบปกติ (reserve_flag = 'N')
-      await addItem(product.product_id, quantity, 'N');
-      // แสดง Toast แจ้งเตือนความสำเร็จสีดำทึบ Minimalist กลางจอ 1.5 วินาที
-      showSuccess('คุณได้ทำการเพิ่มสินค้าลงในรถเข็นแล้ว');
+      const result = await addItem(product.product_id, quantity, 'N');
+      if (result?.success) {
+        // แสดง Toast แจ้งเตือนความสำเร็จสีดำทึบ Minimalist กลางจอ 1.5 วินาที
+        showSuccess('คุณได้ทำการเพิ่มสินค้าลงในรถเข็นแล้ว');
+      } else {
+        // แสดง Alert Modal ข้อผิดพลาดตามธีมของระบบ
+        showError(result?.error || 'ไม่สามารถเพิ่มสินค้าลงในตะกร้าได้');
+
+        // หากเซิร์ฟเวอร์ส่งสต็อกจริงล่าสุดกลับมา ให้อัปเดตข้อมูลบนหน้าจอทันที
+        if (typeof result?.stock === 'number' && updateProductStock) {
+          updateProductStock(product.product_id, result.stock);
+        }
+      }
     } catch (err) {
       showError(err.message || 'ไม่สามารถเพิ่มสินค้าลงในตะกร้าได้');
     } finally {
@@ -119,26 +157,43 @@ export function ProductCard({ product }) {
 
   // 🔖 ฟังก์ชันเมื่อกดยืนยันจากหน้าต่าง PreorderModal
   const handleConfirmPreorder = async (customQty) => {
+    if (isNotForSale) return;
     try {
       // ส่งคำสั่งสั่งจองล่วงหน้า (reserve_flag = 'Y')
-      await addItem(product.product_id, customQty, 'Y');
-      // แสดง Toast แจ้งเตือนความสำเร็จสีดำทึบ Minimalist กลางจอ 1.5 วินาที
-      showSuccess('เพิ่มรายการสั่งล่วงหน้าในตะกร้าเรียบร้อยแล้ว');
+      const result = await addItem(product.product_id, customQty, 'Y');
+      if (result?.success) {
+        // แสดง Toast แจ้งเตือนความสำเร็จสีดำทึบ Minimalist กลางจอ 1.5 วินาที
+        showSuccess('เพิ่มรายการสั่งล่วงหน้าในตะกร้าเรียบร้อยแล้ว');
+      } else {
+        showError(result?.error || 'เกิดข้อผิดพลาดในการสั่งล่วงหน้า');
+      }
     } catch (err) {
       showError(err.message || 'เกิดข้อผิดพลาดในการสั่งล่วงหน้า');
-      throw err;
     }
   };
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-2xs hover:shadow-md hover:border-[#EB6E3E]/70 transition-all duration-200 flex flex-col justify-between group">
+      <div
+        className={`bg-white rounded-xl border border-stone-200 overflow-hidden shadow-2xs transition-all duration-200 flex flex-col justify-between group ${
+          isNotForSale ? 'opacity-80' : 'hover:shadow-md hover:border-[#EB6E3E]/70'
+        }`}
+      >
         {/* ─────────────────────────────────────────────────────────────
             1. พื้นที่รูปภาพสินค้า
             ───────────────────────────────────────────────────────────── */}
         <div className="relative w-full h-22 sm:h-24 bg-white flex items-center justify-center overflow-hidden border-b border-stone-100">
-          {/* แสตมป์ Sold Out (แสดงเมื่อสต็อกไม่พอสั่งซื้อขั้นต่ำ) */}
-          {!isAvailable && (
+          {/* แสตมป์ งดจำหน่าย (not_for_sale_th.png) หรือ Sold Out แปะบนรูปเหมือนกัน */}
+          {isNotForSale ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none p-2 bg-white/40">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/not_for_sale_th.png"
+                alt="งดจำหน่าย"
+                className="w-16 h-auto object-contain select-none opacity-90 drop-shadow-md"
+              />
+            </div>
+          ) : !isAvailable ? (
             <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none p-2 bg-white/40">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -147,7 +202,7 @@ export function ProductCard({ product }) {
                 className="w-16 h-auto object-contain select-none opacity-90 drop-shadow-md"
               />
             </div>
-          )}
+          ) : null}
 
           {imageUrl && !imgError ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -155,7 +210,7 @@ export function ProductCard({ product }) {
               src={imageUrl}
               alt={product.product_name}
               className={`w-full h-full object-contain p-1.5 group-hover:scale-105 transition-transform duration-300 ${
-                !isAvailable ? 'opacity-40 grayscale' : ''
+                !isAvailable || isNotForSale ? 'opacity-40 grayscale' : ''
               }`}
               onError={() => setImgError(true)}
               loading="lazy"
@@ -240,10 +295,14 @@ export function ProductCard({ product }) {
                 {/* ปุ่มสั่งจองล่วงหน้า (Pre-order 🔖) */}
                 <button
                   type="button"
-                  onClick={() => setPreorderOpen(true)}
-                  disabled={isAdding}
-                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg border border-stone-300 bg-white hover:bg-stone-50 hover:border-[#EB6E3E] hover:text-[#EB6E3E] text-[#2B2F38] flex items-center justify-center transition-all shadow-2xs active:scale-95 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                  title="สั่งจองสินค้าล่วงหน้า (Pre-order)"
+                  onClick={() => !isNotForSale && setPreorderOpen(true)}
+                  disabled={isAdding || isNotForSale}
+                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg border border-stone-300 flex items-center justify-center transition-all shadow-2xs shrink-0 ${
+                    isNotForSale
+                      ? 'bg-stone-100 text-stone-300 cursor-not-allowed opacity-50'
+                      : 'bg-white hover:bg-stone-50 hover:border-[#EB6E3E] hover:text-[#EB6E3E] text-[#2B2F38] active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed'
+                  }`}
+                  title={isNotForSale ? 'งดจำหน่าย' : 'สั่งจองสินค้าล่วงหน้า (Pre-order)'}
                 >
                   <RiBookmarkLine className="w-3.5 h-3.5" />
                 </button>
@@ -252,14 +311,16 @@ export function ProductCard({ product }) {
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  disabled={!isAvailable || isAdding}
-                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg flex items-center justify-center transition-all shadow-2xs active:scale-95 shrink-0 ${
-                    isAvailable && !isAdding
-                      ? 'bg-[#2B2F38] hover:bg-[#1E2229] hover:ring-2 hover:ring-[#EB6E3E]/40 text-white cursor-pointer'
+                  disabled={!isAvailable || isAdding || isNotForSale}
+                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg flex items-center justify-center transition-all shadow-2xs shrink-0 ${
+                    isAvailable && !isAdding && !isNotForSale
+                      ? 'bg-[#2B2F38] hover:bg-[#1E2229] hover:ring-2 hover:ring-[#EB6E3E]/40 text-white cursor-pointer active:scale-95'
                       : 'bg-stone-200 text-stone-400 cursor-not-allowed'
                   }`}
                   title={
-                    isAvailable
+                    isNotForSale
+                      ? 'สินค้างดจำหน่าย'
+                      : isAvailable
                       ? 'เพิ่มลงตะกร้า'
                       : stock > 0
                       ? `สินค้าคงเหลือไม่พอต่อขั้นต่ำ (${batchSize} ${product.unit_name || 'ชิ้น'}) สามารถสั่งจองล่วงหน้าได้`

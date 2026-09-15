@@ -189,15 +189,29 @@ export const useProductStore = create((set, get) => ({
         limit: pagination.limit, // ส่ง limit=12 ไปที่ Backend
       });
 
-      if (res.success && res.data) {
+      if (res.success && Array.isArray(res.data)) {
         set({
           products: res.data,
-          pagination: res.pagination,
+          pagination: res.pagination || get().pagination,
           loading: false,
         });
+      } else {
+        set({ loading: false });
       }
     } catch (err) {
+      console.error('fetchProducts Error:', err);
       set({ error: err.message, loading: false });
     }
+  },
+
+  // 🔄 อัปเดตสต็อกของสินค้าชิ้นใดชิ้นหนึ่งทันทีในหน้าจอ (เช่น เมื่อมีคนซื้อตัดหน้าจนสต็อกหมด)
+  updateProductStock: (productId, newStock) => {
+    set((state) => ({
+      products: state.products.map((p) =>
+        p.product_id?.toLowerCase() === productId?.toLowerCase()
+          ? { ...p, stock_quantity: newStock }
+          : p
+      ),
+    }));
   },
 }));

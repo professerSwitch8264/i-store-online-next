@@ -12,8 +12,8 @@
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getDbPool, sql } from '@/app/lib/db';
-import { verifyApiAuth } from '@/app/lib/serverAuth';
+import { getDbPool, sql } from '@/lib/db';
+import { verifyApiAuth } from '@/lib/serverAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -188,18 +188,21 @@ export async function POST(request) {
         WHERE order_id = @orderId
       `);
 
-      // 7.3 อัปเดตสถานะในตาราง order_approvals เป็น 'C'
-      const updateApprovReq = new sql.Request(transaction);
-      updateApprovReq.input('orderId', sql.UniqueIdentifier, targetOrderId);
-      updateApprovReq.input('user', sql.NVarChar, currentUser.username);
+      // 7.3 อัปเดตสถานะในตาราง order_approvals เป็น 'C' เฉพาะกรณีที่ยังไม่ได้อนุมัติ (W หรือ P)
+      // หากผ่านการอนุมัติแล้ว (X) ให้คงสถานะและประวัติการอนุมัติของหัวหน้าไว้ใน order_approvals
+      if (currentStatus === 'W' || currentStatus === 'P') {
+        const updateApprovReq = new sql.Request(transaction);
+        updateApprovReq.input('orderId', sql.UniqueIdentifier, targetOrderId);
+        updateApprovReq.input('user', sql.NVarChar, currentUser.username);
 
-      await updateApprovReq.query(`
-        UPDATE order_approvals
-        SET status = 'C',
-            response_by = @user,
-            response_date = GETDATE()
-        WHERE order_id = @orderId
-      `);
+        await updateApprovReq.query(`
+          UPDATE order_approvals
+          SET status = 'C',
+              response_by = @user,
+              response_date = GETDATE()
+          WHERE order_id = @orderId
+        `);
+      }
 
       await transaction.commit();
     } catch (txErr) {

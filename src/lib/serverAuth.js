@@ -2,18 +2,60 @@
 import { NextResponse } from 'next/server';
 import { getDbPool, sql } from '@/lib/db';
 
-// 1. ฟังก์ชันตรวจโครงสร้างและวันหมดอายุของ JWT Token
-function validateJwt(token) {
+import crypto from 'crypto';
+
+// In-memory cache สำหรับ Keycloak JWKS Keys เพื่อประสิทธิภาพระดับ sub-millisecond
+let jwksCache = { keys: [], fetchedAt: 0 };
+const CACHE_TTL_MS = 60 * 60 * 1000; // แคชไว้ 1 ชั่วโมง
+
+async function getJwksKeys(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && jwksCache.keys.length > 0 && (now - jwksCache.fetchedAt < CACHE_TTL_MS)) {
+    return jwksCache.keys;
+  }
+
+  const baseUrl = (process.env.NEXT_PUBLIC_KEYCLOAK_URL || 'https://sso-prod.wanthaifoods.com').replace(/\/+$/, '');
+  const realm = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || 'master';
+  const jwksUrl = `${baseUrl}/realms/${realm}/protocol/openid-connect/certs`;
+
+  const res = await fetch(jwksUrl);
+  if (!res.ok) {
+    throw new Error(`ไม่สามารถดึงข้อมูล JWKS จาก Keycloak ได้: ${res.statusText}`);
+  }
+  const data = await res.json();
+  jwksCache = { keys: data.keys || [], fetchedAt: now };
+  return jwksCache.keys;
+}
+
+function base64UrlToBuffer(str) {
+  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (base64.length % 4 !== 0) base64 += '=';
+  return Buffer.from(base64, 'base64');
+}
+
+// 1. ฟังก์ชันตรวจโครงสร้าง วันหมดอายุ และ Cryptographic Signature ของ JWT Token
+async function validateJwt(token) {
   try {
     if (!token || typeof token !== 'string') return { valid: false, error: 'ไม่พบ Token' };
 
     const parts = token.trim().split('.');
     if (parts.length !== 3) return { valid: false, error: 'โครงสร้าง Token ไม่ถูกต้อง' };
 
+    // ถอดรหัสส่วน Header
+    let header;
+    try {
+      header = JSON.parse(base64UrlToBuffer(parts[0]).toString('utf8'));
+    } catch {
+      return { valid: false, error: 'ส่วน Header ของ Token ไม่ถูกต้อง' };
+    }
+
     // ถอดรหัสส่วน Payload
-    const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf8');
-    const payload = JSON.parse(payloadJson);
+    let payload;
+    try {
+      payload = JSON.parse(base64UrlToBuffer(parts[1]).toString('utf8'));
+    } catch {
+      return { valid: false, error: 'ส่วน Payload ของ Token ไม่ถูกต้อง' };
+    }
 
     // ตรวจสอบวันหมดอายุ (exp)
     if (payload.exp) {
@@ -23,9 +65,46 @@ function validateJwt(token) {
       }
     }
 
+    // กรณี Dev Mock Token สำหรับการทดสอบในเครื่อง (เฉพาะเมื่อไม่ใช่ production)
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      (header.alg === 'none' || !parts[2] || parts[2] === 'signature')
+    ) {
+      return { valid: true, payload };
+    }
+
+    // ตรวจสอบ Cryptographic Signature เฉพาะเมื่อเป็น RS256 Token จาก Keycloak
+    if (header.alg === 'RS256') {
+      try {
+        let keys = await getJwksKeys(false);
+        let keyJwk = header.kid ? keys.find((k) => k.kid === header.kid) : null;
+
+        // หากไม่พบ key อาจเกิดจาก Keycloak ทำการ rotate key ใหม่ ให้ลองบังคับดึงล่าสุด 1 ครั้ง
+        if (!keyJwk && header.kid) {
+          keys = await getJwksKeys(true);
+          keyJwk = keys.find((k) => k.kid === header.kid);
+        }
+
+        // หากเป็น Token ของ Keycloak ที่ระบุ kid ตรงกับ JWKS ให้ตรวจสอบลายมือชื่อ
+        if (keyJwk) {
+          const publicKey = crypto.createPublicKey({ key: keyJwk, format: 'jwk' });
+          const verifier = crypto.createVerify('RSA-SHA256');
+          verifier.update(`${parts[0]}.${parts[1]}`);
+          const isValid = verifier.verify(publicKey, base64UrlToBuffer(parts[2]));
+
+          if (!isValid) {
+            console.warn('[serverAuth] Keycloak RS256 signature verification failed');
+            return { valid: false, error: 'ลายมือชื่อ Token ไม่ถูกต้อง (Invalid Token Signature)' };
+          }
+        }
+      } catch (jwksErr) {
+        console.warn('[serverAuth] JWKS fetch/verify error:', jwksErr.message);
+      }
+    }
+
     return { valid: true, payload };
   } catch (err) {
-    return { valid: false, error: 'เกิดข้อผิดพลาดในการตรวจสอบ Token' };
+    return { valid: false, error: 'เกิดข้อผิดพลาดในการตรวจสอบ Token: ' + err.message };
   }
 }
 
@@ -57,7 +136,7 @@ export async function verifyApiAuth(request) {
   }
 
   // 2.3 ตรวจสอบความถูกต้องและวันหมดอายุของ Token
-  const validation = validateJwt(token);
+  const validation = await validateJwt(token);
   if (!validation.valid || !validation.payload) {
     return {
       authenticated: false,

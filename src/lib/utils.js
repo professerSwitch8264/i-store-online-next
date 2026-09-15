@@ -145,3 +145,44 @@ export function formatThaiDateTime(dateVal) {
   const minutes = pad(d.getMinutes());
   return `${day} ${month} ${year} · ${hours}:${minutes}`;
 }
+
+/**
+ * จัดรูปแบบวันที่เป็นภาษาไทย พ.ศ. แบบไม่มีเวลา (เช่น 14 ก.ย. 2569)
+ * รองรับทั้ง ISO String, Date Object และ สตริง YYYY-MM-DD
+ */
+export function formatThaiDate(dateVal) {
+  if (!dateVal) return '';
+  const thaiMonths = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+  ];
+
+  const pad = (n) => n.toString().padStart(2, '0');
+
+  // กรณีเป็นรูปแบบ YYYY-MM-DD ตรงๆ
+  if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateVal.trim())) {
+    const [y, m, d] = dateVal.trim().split('-');
+    const year = parseInt(y, 10) + 543;
+    const month = thaiMonths[parseInt(m, 10) - 1] || '';
+    const day = pad(parseInt(d, 10));
+    return `${day} ${month} ${year}`;
+  }
+
+  // กรณีเป็น ISO string พร้อม Timezone
+  if (typeof dateVal === 'string' && (dateVal.includes('T') || dateVal.endsWith('Z'))) {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '';
+    const year = d.getUTCFullYear() + 543;
+    const month = thaiMonths[d.getUTCMonth()] || '';
+    const day = pad(d.getUTCDate());
+    return `${day} ${month} ${year}`;
+  }
+
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear() + 543;
+  const month = thaiMonths[d.getMonth()] || '';
+  const day = pad(d.getDate());
+  return `${day} ${month} ${year}`;
+}
+

@@ -7,6 +7,7 @@ import { useAuth } from '@/app/components/auth/AuthProvider';
 import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useToastStore } from '@/app/stores/useToastStore';
 import { ownerService } from '@/app/services/ownerService';
+import { userService } from '@/app/services/userService';
 import {
   RiAddLine,
   RiDeleteBinLine,
@@ -185,6 +186,7 @@ export default function StoreOwnersPage() {
     }, 350);
   };
 
+
   // เปิด Modal เพิ่มผู้ดูแล
   const handleOpenAddModal = () => {
     setInputUsername('');
@@ -251,10 +253,12 @@ export default function StoreOwnersPage() {
       `${owner.firstname_th || owner.firstname || ''} ${owner.lastname_th || owner.lastname || ''}`.trim() ||
       owner.username;
 
+    const dept = owner.department_th || owner.department || '-';
+
     showConfirm({
-      title: 'ยืนยันการลบผู้ดูแลร้านค้า',
-      message: `คุณต้องการลบสิทธิ์ผู้ดูแลของ "${ownerFullName}" (${owner.username}) ออกจากร้านค้านี้ใช่หรือไม่?`,
-      confirmText: 'ลบผู้ดูแล',
+      title: 'คุณต้องการลบผู้ดูแลร้านออกหรือไม่?',
+      message: `รหัสผู้ใช้งาน : ${owner.username}\nชื่อ-นามสกุล : ${ownerFullName}\nฝ่าย : ${dept}`,
+      confirmText: 'ยืนยัน',
       cancelText: 'ยกเลิก',
       confirmColor: 'red',
       onConfirm: async () => {
@@ -408,10 +412,10 @@ export default function StoreOwnersPage() {
           ───────────────────────────────────────────────────────────── */}
       <div className="w-full bg-white">
         <div
-          style={{ maxHeight: 'calc((100vh / 1.1) - 270px)' }}
+          style={{ maxHeight: 'calc(100vh - 320px)' }}
           className="overflow-x-auto overflow-y-auto"
         >
-          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[560px]">
+          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[35rem]">
             <thead className="bg-white border-b border-stone-200 text-xs font-normal text-[#363636]/80 select-none sticky top-0 z-10 shadow-2xs">
               <tr>
                 <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-12 bg-white">
@@ -634,7 +638,7 @@ export default function StoreOwnersPage() {
 
             <form onSubmit={handleSaveOwner}>
               <div className="space-y-5">
-                {/* แถวที่ 1: รหัสผู้ใช้งาน * และ ชื่อ-นามสกุล */}
+                {/* แถวที่ 1: รหัสผู้ใช้งาน (Dropdown) * และ ชื่อ-นามสกุล */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* ช่องรหัสผู้ใช้งาน * */}
                   <div>
@@ -660,11 +664,11 @@ export default function StoreOwnersPage() {
                     </div>
                   </div>
 
-                  {/* ช่องชื่อ-นามสกุล (Disabled/ReadOnly) */}
+                  {/* ช่องที่ 2: ชื่อ-นามสกุล (Disabled/ReadOnly) */}
                   <div>
                     <div className="relative">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                        <RiAccountBoxLine className="w-5 h-5 text-stone-600" />
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none flex items-center justify-center">
+                        <RiAccountBoxLine className="w-5 h-5 text-stone-400" />
                       </div>
                       <input
                         type="text"
@@ -672,13 +676,13 @@ export default function StoreOwnersPage() {
                         disabled
                         value={
                           foundUser
-                            ? `${foundUser.firstname_th || ''} ${foundUser.lastname_th || ''}`.trim()
+                            ? `${foundUser.firstname_th || foundUser.firstname || ''} ${foundUser.lastname_th || foundUser.lastname || ''}`.trim()
                             : ''
                         }
                         placeholder=""
-                        className="w-full h-12 pl-10 pr-3 bg-white border border-stone-300 rounded-md text-sm text-stone-700 font-normal cursor-not-allowed focus:outline-none"
+                        className="w-full h-12 pl-10 pr-3 bg-stone-100 border border-stone-200 rounded-md text-sm text-stone-700 font-normal cursor-not-allowed select-none focus:outline-none"
                       />
-                      <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
+                      <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-500 font-normal pointer-events-none">
                         ชื่อ-นามสกุล
                       </label>
                     </div>
@@ -688,8 +692,8 @@ export default function StoreOwnersPage() {
                 {/* แถวที่ 2: ฝ่าย (Disabled/ReadOnly) */}
                 <div>
                   <div className="relative">
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                      <RiBriefcaseLine className="w-5 h-5 text-stone-600" />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none flex items-center justify-center">
+                      <RiBriefcaseLine className="w-5 h-5 text-stone-400" />
                     </div>
                     <input
                       type="text"
@@ -697,9 +701,9 @@ export default function StoreOwnersPage() {
                       disabled
                       value={foundUser ? (foundUser.department_th || foundUser.department || '') : ''}
                       placeholder=""
-                      className="w-full h-12 pl-10 pr-3 bg-white border border-stone-300 rounded-md text-sm text-stone-700 font-normal cursor-not-allowed focus:outline-none"
+                      className="w-full h-12 pl-10 pr-3 bg-stone-100 border border-stone-200 rounded-md text-sm text-stone-700 font-normal cursor-not-allowed select-none focus:outline-none"
                     />
-                    <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
+                    <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-500 font-normal pointer-events-none">
                       ฝ่าย
                     </label>
                   </div>
@@ -708,8 +712,8 @@ export default function StoreOwnersPage() {
                 {/* แถวที่ 3: แผนก (Disabled/ReadOnly) */}
                 <div>
                   <div className="relative">
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                      <RiBuildingLine className="w-5 h-5 text-stone-600" />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none flex items-center justify-center">
+                      <RiBuildingLine className="w-5 h-5 text-stone-400" />
                     </div>
                     <input
                       type="text"
@@ -717,9 +721,9 @@ export default function StoreOwnersPage() {
                       disabled
                       value={foundUser ? (foundUser.section_th || foundUser.section || '-') : ''}
                       placeholder=""
-                      className="w-full h-12 pl-10 pr-3 bg-white border border-stone-300 rounded-md text-sm text-stone-700 font-normal cursor-not-allowed focus:outline-none"
+                      className="w-full h-12 pl-10 pr-3 bg-stone-100 border border-stone-200 rounded-md text-sm text-stone-700 font-normal cursor-not-allowed select-none focus:outline-none"
                     />
-                    <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
+                    <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-500 font-normal pointer-events-none">
                       แผนก
                     </label>
                   </div>
@@ -739,11 +743,10 @@ export default function StoreOwnersPage() {
                 <button
                   type="submit"
                   disabled={!foundUser || Boolean(lookupError) || isSubmitting}
-                  className={`px-5 py-2 rounded text-sm font-medium flex items-center justify-center gap-1.5 transition-all shadow-xs ${
-                    foundUser && !lookupError && !isSubmitting
+                  className={`px-5 py-2 rounded text-sm font-medium flex items-center justify-center gap-1.5 transition-all shadow-xs ${foundUser && !lookupError && !isSubmitting
                       ? 'bg-[#2B2F38] hover:bg-[#1E2229] active:bg-black text-white cursor-pointer'
                       : 'bg-[#E0E0E0] text-stone-500 cursor-not-allowed'
-                  }`}
+                    }`}
                 >
                   {isSubmitting ? (
                     <RiLoader4Line className="w-4 h-4 animate-spin" />

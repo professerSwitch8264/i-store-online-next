@@ -21,7 +21,7 @@ import { useToastStore } from '@/app/stores/useToastStore';
 import { useProfileStore } from '@/app/stores/useProfileStore';
 import { useUnsavedChanges } from '@/app/hooks/useUnsavedChanges';
 import { AccountSidebar } from '@/app/components/layout/AccountSidebar';
-import { getProfileUrl } from '@/app/lib/utils';
+import { getProfileUrl } from '@/lib/utils';
 import {
   RiCameraLine,
   RiLoader4Line,

@@ -1,7 +1,7 @@
 // src/app/api/locations/route.js
 import { NextResponse } from 'next/server';
-import { getDbPool, sql } from '@/app/lib/db';
-import { verifyApiAuth } from '@/app/lib/serverAuth';
+import { getDbPool, sql } from '@/lib/db';
+import { verifyApiAuth } from '@/lib/serverAuth';
 
 export const dynamic = 'force-dynamic';
 

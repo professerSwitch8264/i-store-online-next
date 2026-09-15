@@ -19,8 +19,8 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getDbPool, sql } from '@/app/lib/db';
-import { verifyApiAuth } from '@/app/lib/serverAuth';
+import { getDbPool, sql } from '@/lib/db';
+import { verifyApiAuth } from '@/lib/serverAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -561,9 +561,14 @@ export async function GET(request) {
     for (const ord of paginatedOrderHeaders) {
       const idStr = String(ord.order_id);
       const appInfo = appInfoMap[idStr] || appInfoMap[idStr.toUpperCase()] || appInfoMap[idStr.toLowerCase()] || null;
-      const respBy = (appInfo?.response_by || ord.update_by || '').trim() || null;
-      const respDate = appInfo?.response_date || ord.update_date || null;
-      const respByName = respBy ? (userFullnameMap[respBy] || userFullnameMap[respBy.toUpperCase()] || userFullnameMap[respBy.toLowerCase()] || null) : null;
+      const isCancelledOrRejected = ['C', 'R'].includes((ord.status || '').toUpperCase());
+      const respBy = isCancelledOrRejected
+        ? (ord.update_by || appInfo?.response_by || '').trim() || null
+        : (appInfo?.response_by || ord.update_by || '').trim() || null;
+      const respDate = isCancelledOrRejected
+        ? (ord.update_date || appInfo?.response_date || null)
+        : (appInfo?.response_date || ord.update_date || null);
+      const respByName = respBy ? (userFullnameMap[respBy] || userFullnameMap[respBy.toUpperCase()] || userFullnameMap[respBy.toLowerCase()] || respBy) : null;
 
       // ข้อมูลผู้อนุมัติคำสั่งซื้อ (Approver): กรณีผ่านการอนุมัติแล้ว (สถานะเป็น X, S, D หรือ order_approvals.status = 'A')
       const isApprovedOrder = (appInfo?.status || '').toUpperCase() === 'A' || ['X', 'S', 'D'].includes((ord.status || '').toUpperCase());

@@ -1,8 +1,8 @@
 // src/app/api/orders/place/route.js
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getDbPool, sql } from '@/app/lib/db';
-import { verifyApiAuth } from '@/app/lib/serverAuth';
+import { getDbPool, sql } from '@/lib/db';
+import { verifyApiAuth } from '@/lib/serverAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,11 +74,11 @@ export async function POST(request) {
           { status: 400 }
         );
       }
-      // productReq: ตรวจสอบว่าสินค้ามีอยู่จริงและดึงชื่อกับราคา
+      // productReq: ตรวจสอบว่าสินค้ามีอยู่จริงและดึงชื่อกับราคาและสถานะ
       const productReq = await pool
         .request()
         .input('pid', sql.UniqueIdentifier, item.product_id)
-        .query('SELECT product_id, product_name, product_price FROM products WHERE product_id = @pid');
+        .query('SELECT product_id, product_name, product_price, status FROM products WHERE product_id = @pid');
 
       if (productReq.recordset.length === 0) {
         return NextResponse.json(
@@ -88,6 +88,14 @@ export async function POST(request) {
       }
 
       const productInfo = productReq.recordset[0];
+
+      // 🛡️ ตรวจสอบว่าสินค้าปิดการจำหน่ายหรือไม่ (status = 'N')
+      if (String(productInfo.status || 'Y').trim().toUpperCase() === 'N') {
+        return NextResponse.json(
+          { success: false, error: `สินค้า "${productInfo.product_name}" อยู่ในสถานะงดจำหน่าย ไม่สามารถทำการสั่งซื้อได้` },
+          { status: 400 }
+        );
+      }
 
       // ถ้า reserve_flag ไม่เท่ากับ 'Y' แปลว่าเป็นการสั่งซื้อสินค้าปกติที่ต้องตัดของออกจากคลังทันที
       if (reserve_flag !== 'Y') {

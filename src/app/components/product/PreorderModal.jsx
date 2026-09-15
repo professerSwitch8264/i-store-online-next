@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { QuantityStepper } from '@/app/components/ui/QuantityStepper'; // 👈 @/app/components
-import { getThumbnailUrl, formatPrice } from '@/app/lib/utils';        // 👈 @/app/lib
+import { getThumbnailUrl, formatPrice } from '@/lib/utils';
 import { FaShop, FaShopLock } from 'react-icons/fa6';
 import { RiBookmarkLine, RiImageLine } from 'react-icons/ri';
 

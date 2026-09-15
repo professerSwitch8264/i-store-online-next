@@ -165,6 +165,14 @@ export function SearchHeader() {
               priority
             />
           </div>
+          {/* <div className="flex flex-col items-start leading-none">
+            <span className="text-xl font-extrabold tracking-wider text-[#2B2F38]">
+              ISTORE
+            </span>
+            <span className="text-[10px] font-semibold tracking-widest text-stone-400 mt-1">
+              ONLINE PLATFORM
+            </span>
+          </div> */}
 
           {/* 2. กล่องค้นหาสินค้า: รวมเป็นกล่องเดียวกัน และเป็นตัวยึด Popover ใต้ปุ่มดีเทล */}
           <div className="flex-1 min-w-0 max-w-2xl flex justify-center">

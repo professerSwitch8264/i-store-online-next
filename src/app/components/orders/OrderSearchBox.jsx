@@ -6,6 +6,7 @@ import {
   RiUserLine,
   RiCalendarLine,
   RiShoppingBag3Line,
+  RiCloseLine,
 } from 'react-icons/ri';
 
 /**
@@ -16,7 +17,7 @@ import {
  * 2. ผู้สั่งซื้อ (Buyer)
  * 3. วันที่ ตั้งแต่ (Date From)
  * 4. ถึงวันที่ (Date To)
- * 5. รูปแบบการสั่งซื้อ (Order Type: ทั้งหมด / เบิกปกติ / สั่งจองล่วงหน้า)
+ * 5. รูปแบบการสั่งซื้อ (Order Type: ทั้งหมด / มาตรฐาน / สั่งล่วงหน้า)
  */
 export function OrderSearchBox({
   searchInput = '',
@@ -330,9 +331,20 @@ export function OrderSearchBox({
               {/* 3. วันที่ ตั้งแต่ (Date From) */}
               <div>
                 <div className="relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center z-10">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center z-20">
                     <RiCalendarLine className="w-5 h-5 text-stone-600" />
                   </div>
+
+                  {/* ข้อความแสดงผลในรูปแบบ yyyy/mm/dd (เมื่อมีการเลือกวัน) เริ่มต้นหลังไอคอนปฏิทิน ไม่บังไอคอน */}
+                  {draftDateFrom && (
+                    <div
+                      style={{ left: '2.625rem', right: '1.75rem' }}
+                      className="absolute top-[1px] bottom-[1px] flex items-center text-xs sm:text-sm text-[#2B2F38] pointer-events-none z-10 bg-white select-none"
+                    >
+                      {draftDateFrom.replace(/-/g, '/')}
+                    </div>
+                  )}
+
                   <input
                     type="date"
                     value={draftDateFrom}
@@ -350,9 +362,25 @@ export function OrderSearchBox({
                         setDraftDateTo(newFrom);
                       }
                     }}
-                    className="date-input-clickable w-full h-10 pl-10.5 pr-3 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal cursor-pointer"
+                    className={`date-input-clickable ${!draftDateFrom ? 'date-input-empty' : ''} w-full h-10 pl-10.5 pr-8 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal cursor-pointer select-none`}
                   />
-                  <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none z-10">
+
+                  {/* ปุ่มล้างวันที่ เมื่อมีการเลือกวัน */}
+                  {draftDateFrom && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDraftDateFrom('');
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-[#2B2F38] rounded cursor-pointer z-20 transition-colors"
+                      title="ล้างวันที่"
+                    >
+                      <RiCloseLine className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none z-20">
                     วันที่ ตั้งแต่
                   </label>
                 </div>
@@ -361,9 +389,20 @@ export function OrderSearchBox({
               {/* 4. ถึงวันที่ (Date To) */}
               <div>
                 <div className="relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center z-10">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center z-20">
                     <RiCalendarLine className="w-5 h-5 text-stone-600" />
                   </div>
+
+                  {/* ข้อความแสดงผลในรูปแบบ yyyy/mm/dd (เมื่อมีการเลือกวัน) เริ่มต้นหลังไอคอนปฏิทิน ไม่บังไอคอน */}
+                  {draftDateTo && (
+                    <div
+                      style={{ left: '2.625rem', right: '1.75rem' }}
+                      className="absolute top-[1px] bottom-[1px] flex items-center text-xs sm:text-sm text-[#2B2F38] pointer-events-none z-10 bg-white select-none"
+                    >
+                      {draftDateTo.replace(/-/g, '/')}
+                    </div>
+                  )}
+
                   <input
                     type="date"
                     value={draftDateTo}
@@ -382,9 +421,25 @@ export function OrderSearchBox({
                         setDraftDateTo(newTo);
                       }
                     }}
-                    className="date-input-clickable w-full h-10 pl-10.5 pr-3 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal cursor-pointer"
+                    className={`date-input-clickable ${!draftDateTo ? 'date-input-empty' : ''} w-full h-10 pl-10.5 pr-8 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal cursor-pointer select-none`}
                   />
-                  <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none z-10">
+
+                  {/* ปุ่มล้างวันที่ เมื่อมีการเลือกวัน */}
+                  {draftDateTo && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDraftDateTo('');
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-[#2B2F38] rounded cursor-pointer z-20 transition-colors"
+                      title="ล้างวันที่"
+                    >
+                      <RiCloseLine className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none z-20">
                     ถึงวันที่
                   </label>
                 </div>
@@ -402,8 +457,8 @@ export function OrderSearchBox({
                     className="w-full h-10 pl-10.5 pr-8 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal cursor-pointer appearance-none truncate"
                   >
                     <option value="ALL">-- ทั้งหมด --</option>
-                    <option value="N">เบิกปกติ</option>
-                    <option value="Y">สั่งจองล่วงหน้า</option>
+                    <option value="N">มาตรฐาน</option>
+                    <option value="Y">สั่งล่วงหน้า</option>
                   </select>
                   <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none z-10">
                     รูปแบบการสั่งซื้อ

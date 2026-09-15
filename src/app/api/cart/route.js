@@ -1,8 +1,8 @@
 // src/app/api/cart/route.js
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getDbPool, sql } from '@/app/lib/db';           
-import { verifyApiAuth } from '@/app/lib/serverAuth';    
+import { getDbPool, sql } from '@/lib/db';
+import { verifyApiAuth } from '@/lib/serverAuth';
 
 // ─────────────────────────────────────────────────────────────────────────
 // 1. GET /api/cart
@@ -39,6 +39,7 @@ export async function GET(request) {
         p.order_limit,
         p.batch_size,
         p.store_id,
+        p.status,
         s.store_name,
         s.store_access,
         u.unit AS unit_name,
@@ -88,6 +89,7 @@ export async function GET(request) {
           order_limit: row.order_limit,
           batch_size: row.batch_size,
           store_id: row.store_id,
+          status: row.status,
           store_name: row.store_name,
           store_access: row.store_access,
           unit_name: row.unit_name,
@@ -151,6 +153,7 @@ export async function POST(request) {
           p.product_name, 
           p.order_limit,
           p.batch_size,
+          p.status,
           u.unit AS unit_name,
           ISNULL(inv.quantity, 0) AS stock_quantity
         FROM products p
@@ -167,7 +170,17 @@ export async function POST(request) {
     }
 
     const product = checkProduct.recordset[0];
+
+    // ตรวจสอบว่าสินค้าเปิดจำหน่ายหรือไม่
+    if (String(product.status || '').trim().toUpperCase() === 'N') {
+      return NextResponse.json(
+        { success: false, error: 'สินค้านี้งดจำหน่าย ไม่สามารถเพิ่มลงในตะกร้าได้' },
+        { status: 400 }
+      );
+    }
+
     const batchSize = product.batch_size && product.batch_size > 0 ? product.batch_size : 1;
+    const unit = product.unit_name || 'ชิ้น';
 
     // 2. ตรวจสอบว่าในตะกร้ามีสินค้านี้อยู่แล้วหรือไม่
     const checkCart = await pool
@@ -186,24 +199,103 @@ export async function POST(request) {
     // 3. ตรวจสอบสต็อกคงเหลือและขีดจำกัดสูงสุด (สำหรับสินค้าตะกร้าปกติ reserve_flag = 'N')
     if (reserve_flag !== 'Y') {
       const realStock = typeof product.stock_quantity === 'number' ? product.stock_quantity : 0;
-      let stockOrLimit = realStock;
-
-      if (typeof product.order_limit === 'number' && product.order_limit > 0) {
-        stockOrLimit = Math.min(realStock, product.order_limit);
-      }
-
-      const maxMultiple = Math.floor(stockOrLimit / batchSize) * batchSize;
-      const maxLimit = maxMultiple >= batchSize ? maxMultiple : stockOrLimit;
-
       const existingQty = checkCart.recordset.length > 0 ? checkCart.recordset[0].quantity : 0;
       const totalRequestedQty = existingQty + quantity;
 
-      // ตรวจสอบว่ายอดเดิมในตะกร้ามีครบแล้ว หรือยอดรวมเดิม + ยอดใหม่ที่จะเพิ่ม เกินเพดานสูงสุดหรือไม่ (ตรงตาม Easy Store)
+      // 3.1 กรณีสินค้าหมดสต็อกในคลัง (สต็อก = 0 หรือติดลบ)
+      if (realStock <= 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'OUT_OF_STOCK',
+            stock: 0,
+            error: `สินค้า "${product.product_name}" หมดสต็อกแล้ว (คงเหลือ 0 ${unit})`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // 3.2 กรณีสต็อกคงเหลือไม่พอต่อขนาดชุดสั่งซื้อขั้นต่ำ (Batch Size)
+      if (realStock < batchSize) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'INSUFFICIENT_STOCK',
+            stock: realStock,
+            error: `สินค้าคงเหลือในคลังไม่เพียงพอต่อขั้นต่ำ (คงเหลือ ${realStock} ${unit}, ขั้นต่ำ ${batchSize} ${unit})`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // 3.3 กรณีในตะกร้ามีครบตามจำนวนสต็อกคงเหลือจริงแล้ว
+      if (existingQty >= realStock) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'MAX_STOCK_IN_CART',
+            stock: realStock,
+            error: `คุณได้เพิ่มสินค้าลงในตะกร้าครบตามจำนวนคงเหลือในคลังแล้ว (คงเหลือ ${realStock} ${unit})`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // 3.4 กรณีจำนวนรวมที่ต้องการ เกินสต็อกที่มีอยู่ในคลังจริง
+      if (totalRequestedQty > realStock) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'INSUFFICIENT_STOCK',
+            stock: realStock,
+            error: `สินค้าคงเหลือในคลังไม่เพียงพอ (คงเหลือ ${realStock} ${unit}${existingQty > 0 ? `, ในตะกร้ามีแล้ว ${existingQty} ${unit}` : ''})`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // 3.5 กรณีจำกัดการซื้อ (Order Limit) เฉพาะเมื่อมีการตั้งค่าไว้
+      const hasOrderLimit = typeof product.order_limit === 'number' && product.order_limit > 0;
+      if (hasOrderLimit) {
+        const orderLimit = product.order_limit;
+
+        if (existingQty >= orderLimit) {
+          return NextResponse.json(
+            {
+              success: false,
+              code: 'ORDER_LIMIT_REACHED',
+              stock: realStock,
+              error: `สินค้าในตะกร้ามีครบจำนวนจำกัดสูงสุดแล้ว (จำกัดไม่เกิน ${orderLimit} ${unit} ต่อรายการ)`,
+            },
+            { status: 400 }
+          );
+        }
+
+        if (totalRequestedQty > orderLimit) {
+          return NextResponse.json(
+            {
+              success: false,
+              code: 'ORDER_LIMIT_EXCEEDED',
+              stock: realStock,
+              error: `สินค้าจำกัดการซื้อไม่เกิน ${orderLimit} ${unit} ต่อรายการ (ในตะกร้ามีแล้ว ${existingQty} ${unit})`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      // 3.6 ปรับเพดานตามพหุคูณของ batch_size
+      const stockOrLimit = hasOrderLimit ? Math.min(realStock, product.order_limit) : realStock;
+      const maxMultiple = Math.floor(stockOrLimit / batchSize) * batchSize;
+      const maxLimit = maxMultiple >= batchSize ? maxMultiple : stockOrLimit;
+
       if (existingQty >= maxLimit || totalRequestedQty > maxLimit) {
         return NextResponse.json(
           {
             success: false,
-            error: 'สินค้าในตะกร้ามีครบจำนวนจำกัดสูงสุดแล้ว',
+            code: 'LIMIT_EXCEEDED',
+            stock: realStock,
+            error: `จำนวนสินค้าที่สามารถสั่งซื้อได้ต้องไม่เกิน ${maxLimit} ${unit}`,
           },
           { status: 400 }
         );

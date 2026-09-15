@@ -18,13 +18,17 @@ const config = {
   },
 };
 
-let pool = null;
+// Cache connection pool on globalThis in development mode to prevent pool leaks during HMR
+let pool = globalThis.mssqlPool || null;
 
 export async function getDbPool() {
   if (!pool || !pool.connected) {
     pool = await new sql.ConnectionPool(config).connect();
+    if (process.env.NODE_ENV !== 'production') {
+      globalThis.mssqlPool = pool;
+    }
   }
   return pool;
 }
 
-export { sql };
+export { sql };

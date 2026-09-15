@@ -21,7 +21,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/components/auth/AuthProvider';
 import { useOrderStore } from '@/app/stores/useOrderStore';
 import { useProfileStore } from '@/app/stores/useProfileStore';
-import { getProfileUrl } from '@/app/lib/utils';
+import { getProfileUrl } from '@/lib/utils';
 import {
   RiUser3Line,
   RiFileList3Line,

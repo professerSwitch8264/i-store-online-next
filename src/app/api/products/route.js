@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { getDbPool, sql } from '@/lib/db';
 import { verifyApiAuth } from '@/lib/serverAuth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
   try {
     // 1. ตรวจสอบ Token
@@ -19,6 +21,7 @@ export async function GET(request) {
     const search = searchParams.get('search') || '';
     const categoryId = searchParams.get('category_id') || '';
     const storeId = searchParams.get('store_id') || '';
+    const includeAll = searchParams.get('include_all') === 'true';
 
     // 📄 คำนวณหน้าและจำนวนที่จะดึง
     const parsedPage = parseInt(searchParams.get('page'), 10);
@@ -41,6 +44,9 @@ export async function GET(request) {
         p.store_id,
         p.category_id,
         p.unit_id,
+        p.location_id,
+        p.status,
+        loc.location_name,
         p.order_limit,
         p.batch_size,
         c.category_name,
@@ -54,8 +60,9 @@ export async function GET(request) {
       LEFT JOIN categories c ON p.category_id = c.category_id
       LEFT JOIN stores s ON p.store_id = s.store_id
       LEFT JOIN units u ON p.unit_id = u.unit_id
+      LEFT JOIN locations loc ON p.location_id = loc.location_id
       LEFT JOIN v_inventory inv ON p.product_id = inv.product_id
-      WHERE p.status = 'Y'
+      WHERE (p.status IS NULL OR p.status IN ('Y', 'N'))
     `;
 
     // 4. กรองสิทธิ์ร้านค้า (Public + Private เฉพาะที่มีในตาราง customers หรือเป็นเจ้าของร้าน/Admin)
@@ -87,7 +94,7 @@ export async function GET(request) {
       terms.forEach((term, index) => {
         const paramName = `searchTerm_${index}`;
         req.input(paramName, `%${term}%`);
-        query += ` AND (p.product_name LIKE @${paramName} OR p.product_desc LIKE @${paramName})`;
+        query += ` AND (p.product_name LIKE @${paramName} OR p.product_desc LIKE @${paramName} OR loc.location_name LIKE @${paramName})`;
       });
     }
 
@@ -106,7 +113,7 @@ export async function GET(request) {
     req.input('limit', sql.Int, limit);
 
     query += ` 
-      ORDER BY p.product_name ASC
+      ORDER BY p.product_name ASC, p.product_id ASC
       OFFSET @skip ROWS FETCH NEXT @limit ROWS ONLY
     `;
 
@@ -134,6 +141,183 @@ export async function GET(request) {
     console.error('Fetch products error:', error);
     return NextResponse.json(
       { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PUT /api/products
+ * อัปเดตสถานะการใช้งานของสินค้า (เปิดจำหน่าย = 'Y', งดจำหน่าย = 'N')
+ */
+export async function PUT(request) {
+  try {
+    const authResult = await verifyApiAuth(request);
+    if (!authResult.authenticated || !authResult.user) {
+      return authResult.response;
+    }
+
+    const currentUser = authResult.user;
+    const body = await request.json();
+    const { product_id, status } = body;
+
+    if (!product_id) {
+      return NextResponse.json(
+        { success: false, error: 'กรุณาระบุ product_id' },
+        { status: 400 }
+      );
+    }
+
+    const pool = await getDbPool();
+
+    // ตรวจสอบว่ามีสินค้านี้อยู่จริง และดึง store_id มาตรวจสอบสิทธิ์
+    const productCheck = await pool
+      .request()
+      .input('product_id', sql.UniqueIdentifier, product_id)
+      .query(`
+        SELECT product_id, product_name, store_id, status 
+        FROM products 
+        WHERE product_id = @product_id
+      `);
+
+    const product = productCheck.recordset?.[0];
+    if (!product) {
+      return NextResponse.json(
+        { success: false, error: 'ไม่พบข้อมูลสินค้าที่ต้องการแก้ไข' },
+        { status: 404 }
+      );
+    }
+
+    // ตรวจสอบสิทธิ์ (Admin หรือเจ้าของร้าน)
+    const isOwner = (currentUser.ownedStoreIds || []).includes(product.store_id);
+    if (!currentUser.isAdmin && !isOwner) {
+      return NextResponse.json(
+        { success: false, error: 'คุณไม่มีสิทธิ์แก้ไขสถานะสินค้านี้' },
+        { status: 403 }
+      );
+    }
+
+    // ค่าสถานะ: 'Y' (เปิดจำหน่าย) หรือ 'N' (งดจำหน่าย)
+    const newStatus = status === 'Y' || status === true ? 'Y' : 'N';
+
+    const req = pool.request();
+    req.input('product_id', sql.UniqueIdentifier, product_id);
+    req.input('status', sql.NVarChar(1), newStatus);
+    req.input('update_by', sql.NVarChar(16), currentUser.username);
+
+    await req.query(`
+      UPDATE products
+      SET status = @status,
+          update_by = @update_by,
+          update_date = SYSDATETIME()
+      WHERE product_id = @product_id
+    `);
+
+    return NextResponse.json({
+      success: true,
+      message:
+        newStatus === 'Y'
+          ? `เปิดจำหน่ายสินค้า "${product.product_name}" เรียบร้อยแล้ว`
+          : `งดจำหน่ายสินค้า "${product.product_name}" เรียบร้อยแล้ว`,
+      status: newStatus,
+    });
+  } catch (error) {
+    console.error('Update product error:', error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/products
+ * ลบสินค้า (Soft delete ปรับสถานะเป็น 'D' และลบออกจากตะกร้า)
+ */
+export async function DELETE(request) {
+  try {
+    const authResult = await verifyApiAuth(request);
+    if (!authResult.authenticated || !authResult.user) {
+      return authResult.response;
+    }
+
+    const currentUser = authResult.user;
+    const { searchParams } = new URL(request.url);
+    let productId = searchParams.get('product_id');
+
+    if (!productId) {
+      try {
+        const body = await request.json();
+        productId = body?.product_id;
+      } catch (e) {
+        // body might be empty if sent via query param
+      }
+    }
+
+    if (!productId) {
+      return NextResponse.json(
+        { success: false, error: 'กรุณาระบุ product_id' },
+        { status: 400 }
+      );
+    }
+
+    const pool = await getDbPool();
+
+    // ตรวจสอบว่ามีสินค้านี้อยู่จริง และดึง store_id มาตรวจสอบสิทธิ์
+    const productCheck = await pool
+      .request()
+      .input('product_id', sql.UniqueIdentifier, productId)
+      .query(`
+        SELECT product_id, product_name, store_id, status 
+        FROM products 
+        WHERE product_id = @product_id
+      `);
+
+    const product = productCheck.recordset?.[0];
+    if (!product) {
+      return NextResponse.json(
+        { success: false, error: 'ไม่พบข้อมูลสินค้าที่ต้องการลบ' },
+        { status: 404 }
+      );
+    }
+
+    // ตรวจสอบสิทธิ์ (Admin หรือเจ้าของร้าน)
+    const isOwner = (currentUser.ownedStoreIds || []).includes(product.store_id);
+    if (!currentUser.isAdmin && !isOwner) {
+      return NextResponse.json(
+        { success: false, error: 'คุณไม่มีสิทธิ์ลบสินค้านี้' },
+        { status: 403 }
+      );
+    }
+
+    // ลบสินค้าออกจากตะกร้าถ้ามีค้างอยู่
+    await pool
+      .request()
+      .input('product_id', sql.UniqueIdentifier, productId)
+      .query(`DELETE FROM cart WHERE product_id = @product_id`);
+
+    // ทำการ Soft Delete ด้วยการปรับ status = 'D' (Deleted)
+    await pool
+      .request()
+      .input('product_id', sql.UniqueIdentifier, productId)
+      .input('update_by', sql.NVarChar(16), currentUser.username)
+      .query(`
+        UPDATE products
+        SET status = 'D',
+            update_by = @update_by,
+            update_date = SYSDATETIME()
+        WHERE product_id = @product_id
+      `);
+
+    return NextResponse.json({
+      success: true,
+      message: `ลบสินค้า "${product.product_name}" เรียบร้อยแล้ว`,
+      product_id: productId,
+    });
+  } catch (error) {
+    console.error('Delete product error:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'เกิดข้อผิดพลาดในการลบสินค้า' },
       { status: 500 }
     );
   }

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/components/auth/AuthProvider';
 import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useStoreOrderStore } from '@/app/stores/useStoreOrderStore';
-import { getStoreLogoUrl } from '@/app/lib/utils';
+import { getStoreLogoUrl } from '@/lib/utils';
 import { FaShop } from 'react-icons/fa6';
 import {
   RiArrowRightLine,

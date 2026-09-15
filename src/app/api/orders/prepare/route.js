@@ -19,8 +19,8 @@
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getDbPool, sql } from '@/app/lib/db';
-import { verifyApiAuth } from '@/app/lib/serverAuth';
+import { getDbPool, sql } from '@/lib/db';
+import { verifyApiAuth } from '@/lib/serverAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -554,20 +554,8 @@ export async function POST(request) {
         WHERE order_id = @orderId
       `);
 
-      // อัปเดตตาราง order_approvals ด้วยถ้าหากถูกปฏิเสธทั้งหมด
-      if (nextStatus === 'R') {
-        const upAppReq = new sql.Request(transaction);
-        upAppReq.input('orderId', sql.UniqueIdentifier, targetOrderId);
-        upAppReq.input('status', sql.NVarChar, 'R');
-        upAppReq.input('user', sql.NVarChar, currentUser.username);
-        await upAppReq.query(`
-          UPDATE order_approvals
-          SET status = @status,
-              response_by = @user,
-              response_date = GETDATE()
-          WHERE order_id = @orderId
-        `);
-      }
+      // ไม่เขียนทับ order_approvals เมื่อร้านค้าปฏิเสธคำสั่งซื้อในขั้นตอนจัดเตรียม
+      // เพื่อคงประวัติและสถานะการอนุมัติเดิมของหัวหน้าไว้
 
       await transaction.commit();
 

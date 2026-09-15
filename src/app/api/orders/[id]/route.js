@@ -10,8 +10,8 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getDbPool, sql } from '@/app/lib/db';
-import { verifyApiAuth } from '@/app/lib/serverAuth';
+import { getDbPool, sql } from '@/lib/db';
+import { verifyApiAuth } from '@/lib/serverAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -352,10 +352,15 @@ export async function GET(request, { params }) {
       approved_date: approvedDate,
       prepared_by: preparedBy,
       prepared_by_name: preparedByName,
-      prepared_date: preparedDate,
-      response_by: approverRow?.response_by || ordHeader?.update_by || null,
-      response_by_name: approvedByName || preparedByName || null,
-      response_date: approverRow?.response_date || ordHeader?.update_date || null,
+      response_by: ['C', 'R'].includes(currentStatus)
+        ? (ordHeader?.update_by || approverRow?.response_by || null)
+        : (approverRow?.response_by || ordHeader?.update_by || null),
+      response_by_name: ['C', 'R'].includes(currentStatus)
+        ? (userFullnameMap[ordHeader?.update_by] || userFullnameMap[approverRow?.response_by] || ordHeader?.update_by || null)
+        : (approvedByName || preparedByName || null),
+      response_date: ['C', 'R'].includes(currentStatus)
+        ? (ordHeader?.update_date || approverRow?.response_date || null)
+        : (approverRow?.response_date || ordHeader?.update_date || null),
       update_date: ordHeader?.update_date || firstRow.update_date,
       approvers,
       total_items: totalItems,
