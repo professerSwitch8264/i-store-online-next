@@ -1,7 +1,8 @@
 // src/app/components/ui/OutlinedField.jsx
 'use client';
 
-import { RiArrowDownSLine } from 'react-icons/ri';
+import React from 'react';
+import { SearchableSelect } from './SearchableSelect';
 
 /**
  * =========================================================================
@@ -11,7 +12,7 @@ import { RiArrowDownSLine } from 'react-icons/ri';
  * 1. Floating Label คาดเส้นขอบบนกล่อง
  * 2. รองรับ ReadOnly / Disabled (พื้นหลังเทา bg-stone-100 ล็อกแก้ไข)
  * 3. รองรับ Input (text, number, date ฯลฯ)
- * 4. รองรับ Select Dropdown พร้อมไอคอนลูกศรมาตรฐาน
+ * 4. รองรับ Searchable Select Dropdown สไตล์โมเดิร์น พร้อมระบบค้นหาในตัว
  * 5. รองรับ Prefix (ไอคอน / ข้อความนำหน้า เช่น ABC, $, ไอคอนต่าง ๆ)
  * 6. รองรับ Suffix (หน่วยนับด้านหลัง เช่น อัน, ชิ้น, ไอคอนโหลด ฯลฯ)
  * =========================================================================
@@ -28,15 +29,45 @@ export function OutlinedField({
   prefix,
   suffix,
   children,
+  options,
   className = '',
   inputClassName = '',
   uppercase = false,
   error = false,
   height = 'h-12',
+  searchable = true,
+  searchPlaceholder = 'ค้นหา...',
   ...rest
 }) {
   const isReadOnlyOrDisabled = disabled || readOnly;
   const isSelect = type === 'select';
+
+  // ถ้าเป็น select ให้เรียกใช้ SearchableSelect อัตโนมัติ
+  if (isSelect) {
+    return (
+      <SearchableSelect
+        label={label}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder || undefined}
+        disabled={disabled}
+        readOnly={readOnly}
+        required={required}
+        prefix={prefix}
+        suffix={suffix}
+        options={options}
+        className={className}
+        height={height}
+        error={error}
+        searchable={searchable}
+        searchPlaceholder={searchPlaceholder}
+        uppercase={uppercase}
+        {...rest}
+      >
+        {children}
+      </SearchableSelect>
+    );
+  }
 
   return (
     <div
@@ -68,23 +99,6 @@ export function OutlinedField({
         <div className={`truncate w-full text-xs sm:text-sm font-normal text-stone-700 ${inputClassName}`}>
           {value !== undefined && value !== null && value !== '' ? String(value) : '-'}
         </div>
-      ) : isSelect ? (
-        <div className="relative w-full flex items-center">
-          <select
-            value={value ?? ''}
-            onChange={onChange}
-            disabled={disabled}
-            className={`w-full bg-transparent outline-none text-xs sm:text-sm cursor-pointer appearance-none pr-5 font-normal ${
-              value !== undefined && value !== null && value !== ''
-                ? 'text-stone-800'
-                : 'text-stone-400'
-            } ${inputClassName}`}
-            {...rest}
-          >
-            {children}
-          </select>
-          <RiArrowDownSLine className="w-3.5 h-3.5 text-stone-500 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
       ) : children ? (
         <div className="w-full flex items-center">{children}</div>
       ) : (
@@ -108,4 +122,6 @@ export function OutlinedField({
   );
 }
 
+export { SearchableSelect };
 export default OutlinedField;
+

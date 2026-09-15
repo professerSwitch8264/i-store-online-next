@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { RiStore2Line, RiGridLine } from 'react-icons/ri';
 import { useProductStore } from '@/app/stores/useProductStore';
 import { CartPopover } from '@/app/components/cart/CartPopover';
+import { SearchableSelect } from '@/app/components/ui/SearchableSelect';
 
 /**
  * Component: SearchHeader (แถบส่วนหัว: โลโก้, ช่องค้นหาสินค้า, ปุ่ม Search Detail และปุ่มเปิดตะกร้า/พรีออเดอร์)
@@ -276,92 +277,48 @@ export function SearchHeader() {
                     {/* แถวดรอปดาวน์: ร้านค้า และ หมวดหมู่ (ปรับ 1 แถวหรือ 2 คอลัมน์ตามขนาดจอ) ดีไซน์ Outlined Input + Icon ตามแบบหน้าผู้ดูแล/ลูกค้า/หมวดหมู่ */}
                     <div className={`grid gap-4 pt-1.5 ${popoverMaxWidth < 360 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
                       {/* ดรอปดาวน์ร้านค้า */}
-                      <div>
-                        <div className="relative">
-                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                            <RiStore2Line className="w-5 h-5 text-stone-600" />
-                          </div>
-                          <select
-                            value={draftStore}
-                            onChange={(e) => {
-                              const newStore = e.target.value;
-                              setDraftStore(newStore);
-                              // ถ้าเปลี่ยนร้านค้า และหมวดหมู่ที่เลือกไว้ไม่อยู่ในร้านใหม่ ให้รีเซ็ตหมวดหมู่
-                              if (newStore && draftCategory) {
-                                const cat = categories.find((c) => c.category_id === draftCategory);
-                                if (cat && cat.store_id !== newStore) {
-                                  setDraftCategory('');
-                                }
-                              }
-                            }}
-                            className="w-full h-11 pl-10.5 pr-8 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal cursor-pointer appearance-none truncate"
-                          >
-                            <option value="">-- ทั้งหมด --</option>
-                            {stores.map((s) => (
-                              <option key={s.store_id} value={s.store_id}>
-                                {s.store_name}
-                              </option>
-                            ))}
-                          </select>
-                          <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
-                            ร้านค้า
-                          </label>
-                          <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400">
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 9l-7 7-7-7"
-                              />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
+                      <SearchableSelect
+                        label="ร้านค้า"
+                        value={draftStore}
+                        onChange={(e) => {
+                          const newStore = e.target.value;
+                          setDraftStore(newStore);
+                          // ถ้าเปลี่ยนร้านค้า และหมวดหมู่ที่เลือกไว้ไม่อยู่ในร้านใหม่ ให้รีเซ็ตหมวดหมู่
+                          if (newStore && draftCategory) {
+                            const cat = categories.find((c) => c.category_id === draftCategory);
+                            if (cat && cat.store_id !== newStore) {
+                              setDraftCategory('');
+                            }
+                          }
+                        }}
+                        prefix={<RiStore2Line className="w-5 h-5 text-stone-600" />}
+                        height="h-11"
+                        placeholder="-- ทั้งหมด --"
+                      >
+                        <option value="">-- ทั้งหมด --</option>
+                        {stores.map((s) => (
+                          <option key={s.store_id} value={s.store_id}>
+                            {s.store_name}
+                          </option>
+                        ))}
+                      </SearchableSelect>
 
                       {/* ดรอปดาวน์หมวดหมู่ */}
-                      <div>
-                        <div className="relative">
-                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                            <RiGridLine className="w-5 h-5 text-stone-600" />
-                          </div>
-                          <select
-                            value={draftCategory}
-                            onChange={(e) => setDraftCategory(e.target.value)}
-                            className="w-full h-11 pl-10.5 pr-8 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal cursor-pointer appearance-none truncate"
-                          >
-                            <option value="">-- ทั้งหมด --</option>
-                            {filteredCategories.map((c) => (
-                              <option key={c.category_id} value={c.category_id}>
-                                {c.category_name} {c.store_name && !draftStore ? `(${c.store_name})` : ''}
-                              </option>
-                            ))}
-                          </select>
-                          <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
-                            หมวดหมู่
-                          </label>
-                          <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400">
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 9l-7 7-7-7"
-                              />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
+                      <SearchableSelect
+                        label="หมวดหมู่"
+                        value={draftCategory}
+                        onChange={(e) => setDraftCategory(e.target.value)}
+                        prefix={<RiGridLine className="w-5 h-5 text-stone-600" />}
+                        height="h-11"
+                        placeholder="-- ทั้งหมด --"
+                      >
+                        <option value="">-- ทั้งหมด --</option>
+                        {filteredCategories.map((c) => (
+                          <option key={c.category_id} value={c.category_id}>
+                            {c.category_name} {c.store_name && !draftStore ? `(${c.store_name})` : ''}
+                          </option>
+                        ))}
+                      </SearchableSelect>
                     </div>
 
                     {/* ปุ่ม Action ด้านล่าง: ค้นหา (สีหลัก #2B2F38) และ ล้าง (สีขอบ stone-300) รวมกันเท่ากล่องหมวดหมู่ */}

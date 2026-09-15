@@ -8,6 +8,7 @@ import {
   RiShoppingBag3Line,
   RiCloseLine,
 } from 'react-icons/ri';
+import { SearchableSelect } from '@/app/components/ui/SearchableSelect';
 
 /**
  * Component: OrderSearchBox (ช่องค้นหาคำสั่งซื้อ พร้อมปุ่ม Search Detail และ Popover ค้นหาละเอียด)
@@ -447,38 +448,18 @@ export function OrderSearchBox({
 
               {/* 5. รูปแบบการสั่งซื้อ (Order Type) */}
               <div className={popoverMaxWidth < 380 ? 'col-span-1' : 'col-span-1 sm:col-span-2'}>
-                <div className="relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center z-10">
-                    <RiShoppingBag3Line className="w-5 h-5 text-stone-600" />
-                  </div>
-                  <select
-                    value={draftReserveFlag}
-                    onChange={(e) => setDraftReserveFlag(e.target.value)}
-                    className="w-full h-10 pl-10.5 pr-8 bg-white border border-stone-300 rounded-md text-xs sm:text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal cursor-pointer appearance-none truncate"
-                  >
-                    <option value="ALL">-- ทั้งหมด --</option>
-                    <option value="N">มาตรฐาน</option>
-                    <option value="Y">สั่งล่วงหน้า</option>
-                  </select>
-                  <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none z-10">
-                    รูปแบบการสั่งซื้อ
-                  </label>
-                  <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </div>
-                </div>
+                <SearchableSelect
+                  label="รูปแบบการสั่งซื้อ"
+                  value={draftReserveFlag}
+                  onChange={(e) => setDraftReserveFlag(e.target.value)}
+                  prefix={<RiShoppingBag3Line className="w-5 h-5 text-stone-600" />}
+                  height="h-10"
+                  searchable={false}
+                >
+                  <option value="ALL">-- ทั้งหมด --</option>
+                  <option value="N">มาตรฐาน</option>
+                  <option value="Y">สั่งล่วงหน้า</option>
+                </SearchableSelect>
               </div>
             </div>
 

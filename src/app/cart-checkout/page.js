@@ -11,8 +11,9 @@ import { QuantityStepper } from '@/app/components/ui/QuantityStepper';
 import { shippingLocationService } from '@/app/services/shippingLocationService';
 import { useOrderStore } from '@/app/stores/useOrderStore';
 import { getThumbnailUrl, formatPrice } from '@/lib/utils';
-import { RiDeleteBin6Line, RiShoppingCart2Line, RiBookmarkLine, RiImageLine, RiAlertLine } from 'react-icons/ri';
+import { RiDeleteBin6Line, RiShoppingCart2Line, RiBookmarkLine, RiImageLine, RiAlertLine, RiTruckLine } from 'react-icons/ri';
 import { FaShop, FaShopLock } from 'react-icons/fa6';
+import { SearchableSelect } from '@/app/components/ui/SearchableSelect';
 
 /**
  * Component: CheckoutItemThumbnail (แสดงภาพขนาดย่อ หรือสลับเป็นไอคอน RiImageLine เมื่อรูปเสียหรือไม่มีรูป)
@@ -487,52 +488,29 @@ function CartCheckoutContent() {
               </div>
             </div>
 
-            {/* ด้านขวา: Dropdown สถานที่จัดส่งสินค้า (กรอบเรียบหรูพร้อมป้ายลอย) */}
-            <div className="relative">
-              <div className="relative border border-stone-300 rounded-md px-3.5 pt-2.5 pb-2.5 bg-white flex items-center gap-2.5 transition-all focus-within:border-stone-500 focus-within:ring-1 focus-within:ring-stone-400">
-                {/* ป้ายชื่อสถานที่จัดส่งลอยตรงมุมบนซ้าย */}
-                <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-[11px] font-normal text-stone-600">
-                  สถานที่จัดส่ง <span className="text-rose-500">*</span>
-                </label>
-
-                {/* ไอคอนรูปรถบรรทุกขนส่งสินค้า */}
-                <div className="shrink-0 text-stone-600">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
-                  </svg>
-                </div>
-
-                {/* Select Dropdown รายชื่อสถานที่จัดส่ง */}
-                <select
-                  value={selectedLocationId}
-                  onChange={(e) => setSelectedLocationId(e.target.value)}
-                  disabled={loadingLocations || shippingLocations.length === 0}
-                  className="w-full bg-transparent text-xs sm:text-sm font-normal text-[#363636] focus:outline-none cursor-pointer pr-4 appearance-none"
-                >
-                  {loadingLocations ? (
-                    <option value="">กำลังโหลดสถานที่จัดส่ง...</option>
-                  ) : shippingLocations.length === 0 ? (
-                    <option value="">ไม่พบข้อมูลสถานที่จัดส่ง</option>
-                  ) : (
-                    shippingLocations.map((loc) => (
-                      <option key={loc.location_id} value={loc.location_id}>
-                        {loc.location_name} {loc.location_desc ? `(${loc.location_desc})` : ''}
-                      </option>
-                    ))
-                  )}
-                </select>
-
-                {/* ไอคอนลูกศรชี้ลง Dropdown ทางขวา */}
-                <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-500">
-                  <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-              </div>
+            {/* ด้านขวา: Dropdown สถานที่จัดส่งสินค้า (SearchableSelect สไตล์โมเดิร์น) */}
+            <div className="relative min-w-[240px] sm:min-w-[280px]">
+              <SearchableSelect
+                label="สถานที่จัดส่ง *"
+                value={selectedLocationId}
+                onChange={(e) => setSelectedLocationId(e.target.value)}
+                disabled={loadingLocations || shippingLocations.length === 0}
+                placeholder={
+                  loadingLocations
+                    ? 'กำลังโหลดสถานที่จัดส่ง...'
+                    : shippingLocations.length === 0
+                    ? 'ไม่พบข้อมูลสถานที่จัดส่ง'
+                    : 'เลือกสถานที่จัดส่ง...'
+                }
+                prefix={<RiTruckLine className="w-5 h-5 text-stone-600 shrink-0" />}
+                height="h-11"
+              >
+                {shippingLocations.map((loc) => (
+                  <option key={loc.location_id} value={loc.location_id}>
+                    {loc.location_name} {loc.location_desc ? `(${loc.location_desc})` : ''}
+                  </option>
+                ))}
+              </SearchableSelect>
             </div>
           </div>
         </div>

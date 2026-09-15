@@ -24,6 +24,7 @@ import { useApprovalStore, REJECT_REASONS } from '@/app/stores/useApprovalStore'
 import { useToastStore } from '@/app/stores/useToastStore';
 import { OrderSearchBox } from '@/app/components/orders/OrderSearchBox';
 import TablePagination from '@/app/components/ui/TablePagination';
+import { SearchableSelect } from '@/app/components/ui/SearchableSelect';
 import { getThumbnailUrl, formatThaiDateTime } from '@/lib/utils';
 import { MdViewKanban } from 'react-icons/md';
 import {
@@ -720,30 +721,23 @@ export default function ApprovalsPage() {
             </div>
 
             <div>
-              <label className="text-xs text-stone-700 font-medium block mb-1.5">
-                เหตุผลในการปฏิเสธ <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <select
-                  value={selectedRejectReason}
-                  onChange={(e) => setSelectedRejectReason(e.target.value)}
-                  className="w-full h-9.5 px-3 text-xs text-stone-900 bg-white border border-stone-300 rounded-md focus:border-red-500 focus:ring-1 focus:ring-red-500/50 focus:outline-none transition-colors cursor-pointer appearance-none pr-8 font-normal"
-                >
-                  <option value="" disabled>
-                    -- เลือกเหตุผลในการปฏิเสธ --
+              <SearchableSelect
+                label="เหตุผลในการปฏิเสธ *"
+                value={selectedRejectReason}
+                onChange={(e) => setSelectedRejectReason(e.target.value)}
+                placeholder="-- เลือกเหตุผลในการปฏิเสธ --"
+                height="h-10"
+                searchable={false}
+              >
+                <option value="" disabled hidden>
+                  -- เลือกเหตุผลในการปฏิเสธ --
+                </option>
+                {REJECT_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {reason}
                   </option>
-                  {REJECT_REASONS.map((reason) => (
-                    <option key={reason} value={reason}>
-                      {reason}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-stone-500">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
+                ))}
+              </SearchableSelect>
 
               {/* แสดงช่องกรอกเพิ่มเติมเฉพาะเมื่อเลือก อื่นๆ */}
               {selectedRejectReason === 'อื่นๆ (ระบุเพิ่มเติม)' && (

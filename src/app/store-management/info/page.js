@@ -24,6 +24,7 @@ import {
   RiCameraLine,
   RiLoader4Line,
 } from 'react-icons/ri';
+import { SearchableSelect } from '@/app/components/ui/SearchableSelect';
 
 export default function StoreInfoPage() {
   const { userInfo } = useAuth();
@@ -508,27 +509,19 @@ export default function StoreInfoPage() {
 
                 {/* 4. ช่องการเข้าถึงร้านค้า */}
                 <div>
-                  <div className="relative">
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                      <RiGlobalLine className="w-5 h-5 text-stone-600" />
-                    </div>
-                    <select
-                      value={formData.store_access}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, store_access: e.target.value }))
-                      }
-                      className="w-full h-12 pl-10 pr-9 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal appearance-none cursor-pointer"
-                    >
-                      <option value="public">สาธารณะ (Public) - ทุกคนสั่งได้</option>
-                      <option value="private">เฉพาะกลุ่ม (Private) - จำกัดสิทธิ์</option>
-                    </select>
-                    <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400">
-                      <RiArrowDownSLine className="w-4 h-4" />
-                    </div>
-                    <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
-                      การเข้าถึงร้านค้า <span className="text-stone-500">*</span>
-                    </label>
-                  </div>
+                  <SearchableSelect
+                    label="การเข้าถึงร้านค้า *"
+                    value={formData.store_access}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, store_access: e.target.value }))
+                    }
+                    prefix={<RiGlobalLine className="w-5 h-5 text-stone-600" />}
+                    height="h-12"
+                    searchable={false}
+                  >
+                    <option value="public">สาธารณะ (Public) - ทุกคนสั่งได้</option>
+                    <option value="private">เฉพาะกลุ่ม (Private) - จำกัดสิทธิ์</option>
+                  </SearchableSelect>
                 </div>
 
                 {/* 5. แถววันที่เติมของ & ลิมิตวันที่รายการตกค้าง (2 คอลัมน์) */}
