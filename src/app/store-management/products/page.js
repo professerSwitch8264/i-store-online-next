@@ -12,6 +12,9 @@ import { locationService } from '@/app/services/locationService';
 import { unitService } from '@/app/services/unitService';
 import { getThumbnailUrl } from '@/lib/utils';
 import TablePagination from '@/app/components/ui/TablePagination';
+import DataTable from '@/app/components/ui/DataTable';
+import ToggleSwitch from '@/app/components/ui/ToggleSwitch';
+import TableActionButton from '@/app/components/ui/TableActionButton';
 import OutlinedField from '@/app/components/ui/OutlinedField';
 import ProductThumbnail from '@/app/components/ui/ProductThumbnail';
 import {
@@ -23,6 +26,7 @@ import {
   RiRefreshLine,
   RiImageLine,
   RiImageAddLine,
+  RiImageAddFill,
   RiPlayListAddLine,
   RiDeleteBinLine,
   RiEdit2Line,
@@ -500,17 +504,6 @@ export default function StoreProductsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* ปุ่มเพิ่มสินค้าใหม่ */}
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-[#2B2F38] hover:bg-[#1E2229] text-white rounded-md text-xs font-medium transition-colors cursor-pointer shadow-2xs"
-            title="เพิ่มสินค้าใหม่"
-          >
-            <RiAddLine className="w-4 h-4" />
-            <span>เพิ่มสินค้า</span>
-          </button>
-
           {/* ปุ่มรีเฟรช */}
           <button
             type="button"
@@ -524,6 +517,17 @@ export default function StoreProductsPage() {
           >
             <RiRefreshLine className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>รีเฟรช</span>
+          </button>
+
+          {/* ปุ่มเพิ่มสินค้าใหม่ */}
+          <button
+            type="button"
+            onClick={handleOpenCreateModal}
+            className="inline-flex items-center justify-center gap-1.5 bg-[#2B2F38] hover:bg-[#1E2229] text-white text-xs sm:text-sm font-medium px-3.5 py-2 rounded-md transition-colors cursor-pointer shadow-xs active:scale-98"
+            title="เพิ่มสินค้าใหม่"
+          >
+            <RiAddLine className="w-4 h-4" />
+            <span>เพิ่มสินค้า</span>
           </button>
         </div>
       </div>
@@ -579,205 +583,160 @@ export default function StoreProductsPage() {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          ส่วนที่ 3: ตารางรายการสินค้า
+          ส่วนที่ 3 & 4: ตารางรายการสินค้า + Pagination (ล็อกความสูงตามหน้าจอ และล็อกความสูงแถว)
           ───────────────────────────────────────────────────────────── */}
-      <div className="w-full bg-white">
-        <div
-          style={{ maxHeight: 'calc(100vh - 320px)' }}
-          className="overflow-x-auto overflow-y-auto"
-        >
-          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[50rem]">
-            <thead className="bg-white border-b border-stone-200 text-xs font-normal text-[#363636]/80 select-none sticky top-0 z-10 shadow-2xs">
-              <tr>
-                <th className="py-2.5 px-3 font-normal text-[#363636] text-center w-16 bg-white">
-                  รูป
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] bg-white">
-                  ชื่อสินค้า
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] bg-white">
-                  ตำแหน่งจัดเก็บ
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-28 bg-white whitespace-nowrap">
-                  จำนวนคงเหลือ
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-24 bg-white whitespace-nowrap">
-                  หน่วย
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-right w-28 bg-white whitespace-nowrap">
-                  ราคา
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-24 sm:w-28 bg-white whitespace-nowrap">
-                  สถานะ
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-32 bg-white whitespace-nowrap">
-                  จัดการ
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 text-sm">
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="py-16 text-center text-stone-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <RiLoader4Line className="w-6 h-6 animate-spin text-stone-400" />
-                      <span className="text-xs">กำลังโหลดข้อมูลรายการสินค้า...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : products.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-16 text-center text-stone-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 mb-1">
-                        <RiBox3Line className="w-6 h-6" />
-                      </div>
-                      <p className="text-sm font-medium text-[#2B2F38]">
-                        {appliedSearch ? `ไม่พบสินค้าที่ตรงกับ "${appliedSearch}"` : 'ยังไม่มีรายการสินค้าในร้านนี้'}
-                      </p>
-                      <p className="text-xs text-stone-500 max-w-xs">
-                        {appliedSearch ? 'ลองเปลี่ยนคำค้นหาใหม่อีกครั้ง' : 'คลิกปุ่ม "+ เพิ่มสินค้า" เพื่อเพิ่มสินค้าใหม่'}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                products.map((product, idx) => {
-                  const stock = Number(product.stock_quantity || 0);
-
-                  return (
-                    <tr
-                      key={product.product_id || idx}
-                      className="hover:bg-stone-50/70 transition-colors"
-                    >
-                      {/* รูปภาพ */}
-                      <td className="py-3 px-3 text-center">
-                        <ProductThumbnail
-                          thumbnail={product.product_thumbnail}
-                          productName={product.product_name}
-                        />
-                      </td>
-
-                      {/* ชื่อ และ รายละเอียดใต้ชื่อ */}
-                      <td className="py-3 px-4 text-[#2B2F38] text-xs sm:text-sm">
-                        <p className="font-medium text-[#2B2F38]">{product.product_name}</p>
-                        {product.product_desc ? (
-                          <p className="text-xs text-stone-500 font-normal mt-0.5 line-clamp-1">
-                            {product.product_desc}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-stone-400 font-normal mt-0.5">-</p>
-                        )}
-                      </td>
-
-                      {/* ตำแหน่งจัดเก็บ (Location) */}
-                      <td className="py-3 px-4 text-xs sm:text-sm text-[#2B2F38] whitespace-nowrap">
-                        {product.location_name ? (
-                          <span className="font-normal text-stone-700">{product.location_name}</span>
-                        ) : (
-                          <span className="text-stone-400 font-normal">-</span>
-                        )}
-                      </td>
-
-                      {/* จำนวน (คงเหลือในคลัง) */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap text-xs sm:text-sm">
-                        <span
-                          className={`font-medium ${
-                            stock > 0 ? 'text-[#2B2F38]' : 'text-stone-400'
-                          }`}
-                        >
-                          {stock.toLocaleString()}
-                        </span>
-                      </td>
-
-                      {/* หน่วย */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap text-xs text-stone-600">
-                        {product.unit_name || product.uom || '-'}
-                      </td>
-
-                      {/* ราคา */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap text-xs sm:text-sm font-medium text-[#2B2F38]">
-                        ฿{formatPrice(product.product_price)}
-                      </td>
-
-                      {/* สถานะเปิดจำหน่าย/งดจำหน่าย (Toggle Switch) */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleStatus(product)}
-                            disabled={togglingId === product.product_id}
-                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-[#EB6E3E] ${
-                              (product.status || 'Y') === 'Y' ? 'bg-[#2B2F38]' : 'bg-stone-300'
-                            }`}
-                            title={
-                              (product.status || 'Y') === 'Y'
-                                ? 'คลิกเพื่องดจำหน่าย'
-                                : 'คลิกเพื่อเปิดจำหน่าย'
-                            }
-                          >
-                            <span
-                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                                (product.status || 'Y') === 'Y' ? 'translate-x-4' : 'translate-x-0'
-                              }`}
-                            />
-                          </button>
-                        </div>
-                      </td>
-
-                      {/* จัดการ (ปุ่มรับสินค้าเข้าคลัง + ปุ่มแก้ไข + ปุ่มลบสินค้า) */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1">
-                          {/* ปุ่มรับสินค้าเข้าคลัง */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenReceiveModal(product)}
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-md text-[#2B2F38] hover:text-[#D97706] hover:bg-amber-50/80 active:bg-amber-100 transition-colors cursor-pointer"
-                            title="รับสินค้าเข้าคลัง"
-                          >
-                            <RiPlayListAddLine className="w-5 h-5" />
-                          </button>
-
-                          {/* ปุ่มแก้ไขสินค้า */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(product)}
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-md text-[#2B2F38] hover:text-[#2563EB] hover:bg-blue-50 active:bg-blue-100 transition-colors cursor-pointer"
-                            title="แก้ไขข้อมูลสินค้า"
-                          >
-                            <RiEdit2Line className="w-4.5 h-4.5" />
-                          </button>
-
-                          {/* ปุ่มลบสินค้า */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDeleteModal(product)}
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-md text-[#2B2F38] hover:text-[#DC2626] hover:bg-rose-50 active:bg-rose-100 transition-colors cursor-pointer"
-                            title="ลบสินค้า"
-                          >
-                            <RiDeleteBinLine className="w-4.5 h-4.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────────
-          ส่วนที่ 4: แถบ Pagination ด้านล่าง
-          ───────────────────────────────────────────────────────────── */}
-      <TablePagination
-        page={page}
-        totalCount={totalCount}
-        rowsPerPage={rowsPerPage}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
+      <DataTable
+        columns={[
+          {
+            key: 'thumbnail',
+            label: 'รูป',
+            align: 'center',
+            width: 'w-16',
+            render: (product) => (
+              <div className="flex items-center justify-center">
+                <ProductThumbnail
+                  thumbnail={product.product_thumbnail}
+                  productName={product.product_name}
+                />
+              </div>
+            ),
+          },
+          {
+            key: 'product_name',
+            label: 'ชื่อสินค้า',
+            render: (product) => (
+              <div className="flex flex-col justify-center min-w-0 pr-2">
+                <p className="font-medium text-[#2B2F38] text-xs sm:text-sm truncate" title={product.product_name}>
+                  {product.product_name}
+                </p>
+                {product.product_desc ? (
+                  <p className="text-xs text-stone-500 font-normal truncate mt-0.5" title={product.product_desc}>
+                    {product.product_desc}
+                  </p>
+                ) : (
+                  <p className="text-xs text-stone-400 font-normal mt-0.5">-</p>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'location_name',
+            label: 'ตำแหน่งจัดเก็บ',
+            render: (product) => (
+              <span className="truncate block text-stone-700 text-xs sm:text-sm font-normal" title={product.location_name || '-'}>
+                {product.location_name || '-'}
+              </span>
+            ),
+          },
+          {
+            key: 'stock_quantity',
+            label: 'จำนวนคงเหลือ',
+            align: 'center',
+            width: 'w-28',
+            render: (product) => {
+              const stock = Number(product.stock_quantity || 0);
+              return (
+                <span
+                  className={`font-medium text-xs sm:text-sm ${
+                    stock > 0 ? 'text-[#2B2F38]' : 'text-stone-400'
+                  }`}
+                >
+                  {stock.toLocaleString()}
+                </span>
+              );
+            },
+          },
+          {
+            key: 'unit_name',
+            label: 'หน่วย',
+            align: 'center',
+            width: 'w-24',
+            render: (product) => (
+              <span className="text-xs text-stone-600 truncate block">
+                {product.unit_name || product.uom || '-'}
+              </span>
+            ),
+          },
+          {
+            key: 'product_price',
+            label: 'ราคา',
+            align: 'right',
+            width: 'w-28',
+            render: (product) => (
+              <span className="text-xs sm:text-sm font-medium text-[#2B2F38] whitespace-nowrap">
+                ฿{formatPrice(product.product_price)}
+              </span>
+            ),
+          },
+          {
+            key: 'status',
+            label: 'สถานะ',
+            align: 'center',
+            width: 'w-24 sm:w-28',
+            render: (product) => (
+              <div className="flex items-center justify-center">
+                <ToggleSwitch
+                  checked={(product.status || 'Y') === 'Y'}
+                  disabled={togglingId === product.product_id}
+                  onChange={() => handleToggleStatus(product)}
+                  title={
+                    (product.status || 'Y') === 'Y'
+                      ? 'คลิกเพื่องดจำหน่าย'
+                      : 'คลิกเพื่อเปิดจำหน่าย'
+                  }
+                />
+              </div>
+            ),
+          },
+          {
+            key: 'actions',
+            label: 'จัดการ',
+            align: 'center',
+            width: 'w-32',
+            render: (product) => (
+              <div className="flex items-center justify-center gap-1">
+                <TableActionButton
+                  icon="receive"
+                  variant="amber"
+                  title="รับสินค้าเข้าคลัง"
+                  onClick={() => handleOpenReceiveModal(product)}
+                />
+                <TableActionButton
+                  icon="edit"
+                  variant="blue"
+                  title="แก้ไขข้อมูลสินค้า"
+                  onClick={() => handleOpenEditModal(product)}
+                />
+                <TableActionButton
+                  icon="delete"
+                  variant="rose"
+                  title="ลบสินค้า"
+                  onClick={() => handleOpenDeleteModal(product)}
+                />
+              </div>
+            ),
+          },
+        ]}
+        data={products}
+        rowKey={(p, idx) => p.product_id || idx}
         loading={loading}
+        loadingText="กำลังโหลดข้อมูลรายการสินค้า..."
+        emptyState={{
+          icon: RiBox3Line,
+          title: appliedSearch ? `ไม่พบสินค้าที่ตรงกับ "${appliedSearch}"` : 'ยังไม่มีรายการสินค้าในร้านนี้',
+          description: appliedSearch ? 'ลองเปลี่ยนคำค้นหาใหม่อีกครั้ง' : 'คลิกปุ่ม "+ เพิ่มสินค้า" เพื่อเพิ่มสินค้าใหม่',
+        }}
+        rowHeight="h-16"
+        maxHeight="calc(100vh - 320px)"
+        minWidth="min-w-[50rem]"
+        pagination={{
+          page,
+          totalCount,
+          rowsPerPage,
+          onPageChange: handlePageChange,
+          onRowsPerPageChange: handleRowsPerPageChange,
+          loading,
+        }}
       />
 
       {/* ─────────────────────────────────────────────────────────────
@@ -813,8 +772,8 @@ export default function StoreProductsPage() {
 
             {/* Content: ซ้าย (อัปโหลดรูปภาพ) | ขวา (แบบฟอร์มข้อมูลสินค้า) */}
             <div className="flex flex-col md:flex-row gap-5 items-stretch">
-              {/* ซ้าย: กล่องอัปโหลดรูปภาพสินค้าในกรอบเส้นประ สี่เหลี่ยมจัตุรัส */}
-              <div className="w-full md:w-[260px] flex flex-col items-center shrink-0">
+              {/* ซ้าย: กล่องอัปโหลดรูปภาพสินค้าในกรอบเส้นประ สี่เหลี่ยมจัตุรัสขอบมน (ตามแบบภาพ) */}
+              <div className="w-full md:w-[250px] lg:w-[260px] flex flex-col items-center shrink-0">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -825,10 +784,10 @@ export default function StoreProductsPage() {
 
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className={`group relative w-full h-[260px] border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-4 transition-all cursor-pointer overflow-hidden ${
+                  className={`group relative w-full h-[250px] md:h-full min-h-[250px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-5 transition-all cursor-pointer overflow-hidden ${
                     productImagePreview
                       ? 'border-stone-300 bg-white hover:border-[#2B2F38]'
-                      : 'border-stone-300 bg-stone-50/50 hover:border-[#2B2F38] hover:bg-stone-50'
+                      : 'border-[#D4CFC9] bg-white hover:border-[#2B2F38] hover:bg-stone-50/50'
                   }`}
                   title="คลิกเพื่อเลือกรูปภาพสินค้า"
                 >
@@ -838,30 +797,35 @@ export default function StoreProductsPage() {
                       <img
                         src={productImagePreview}
                         alt="Product Preview"
-                        className="max-w-full max-h-full object-contain"
+                        className="max-w-full max-h-[210px] object-contain rounded-xl"
                       />
                       {/* Overlay เปลี่ยน / ลบรูป */}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 text-white transition-opacity">
-                        <span className="text-xs font-medium bg-black/50 px-2.5 py-1 rounded-md">
+                      <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2.5 text-white transition-opacity p-4">
+                        <span className="text-xs font-medium bg-black/60 px-3 py-1.5 rounded-lg shadow-sm">
                           คลิกเพื่อเปลี่ยนรูป
                         </span>
                         <button
                           type="button"
-                          onClick={handleRemoveImage}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium bg-red-600/90 hover:bg-red-700 text-white px-2 py-1 rounded transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveImage();
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm cursor-pointer"
                         >
-                          <RiDeleteBin7Line className="w-3.5 h-3.5" />
+                          <RiDeleteBin7Line className="w-4 h-4" />
                           <span>ลบรูปภาพ</span>
                         </button>
                       </div>
                     </>
                   ) : (
-                    <div className="flex flex-col items-center justify-center text-stone-400 group-hover:text-[#2B2F38] transition-colors">
-                      <RiImageAddLine className="w-12 h-12 stroke-[1.5] mb-2" />
-                      <span className="text-xs font-medium text-stone-500 group-hover:text-[#2B2F38]">
+                    <div className="flex flex-col items-center justify-center text-center select-none py-4">
+                      <RiImageAddFill className="w-14 h-14 sm:w-16 sm:h-16 text-[#9E9890] group-hover:text-[#6E6862] transition-colors" />
+                      <p className="text-sm sm:text-base font-semibold text-[#5A5550] group-hover:text-[#2B2F38] mt-3 transition-colors">
                         รูปภาพสินค้า
-                      </span>
-                      <span className="text-[10px] text-stone-400 mt-1">คลิกเพื่ออัปโหลด</span>
+                      </p>
+                      <p className="text-xs text-[#9E9890] mt-1 font-normal">
+                        คลิกเพื่ออัปโหลด
+                      </p>
                     </div>
                   )}
                 </div>

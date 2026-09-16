@@ -9,6 +9,8 @@ import { useToastStore } from '@/app/stores/useToastStore';
 import { customerService } from '@/app/services/customerService';
 import { userService } from '@/app/services/userService';
 import TablePagination from '@/app/components/ui/TablePagination';
+import DataTable from '@/app/components/ui/DataTable';
+import TableActionButton from '@/app/components/ui/TableActionButton';
 import OutlinedField from '@/app/components/ui/OutlinedField';
 import {
   RiAddLine,
@@ -405,129 +407,107 @@ export default function StoreCustomersPage() {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          ส่วนที่ 3: ตารางรายการลูกค้า (ล็อกความสูงตามหน้าจอ)
+          ส่วนที่ 3 & 4: ตารางรายการลูกค้า (ล็อกความสูงตามหน้าจอ) + Pagination
           ───────────────────────────────────────────────────────────── */}
-      <div className="w-full bg-white">
-        <div
-          style={{ maxHeight: 'calc(100vh - 320px)' }}
-          className="overflow-x-auto overflow-y-auto"
-        >
-          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[35rem]">
-            <thead className="bg-white border-b border-stone-200 text-xs font-normal text-[#363636]/80 select-none sticky top-0 z-10 shadow-2xs">
-              <tr>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-12 bg-white">
-                  #
-                </th>
-                <th className="py-2.5 px-5 sm:px-6 font-normal text-[#363636] bg-white w-40 whitespace-nowrap">
-                  รหัสพนักงาน
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] bg-white">
-                  ชื่อ - นามสกุล
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] bg-white">
-                  ฝ่าย / แผนก
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-24 sm:w-28 bg-white whitespace-nowrap">
-                  จัดการ
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 text-sm">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center text-stone-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <RiLoader4Line className="w-6 h-6 animate-spin text-stone-400" />
-                      <span className="text-xs">กำลังโหลดข้อมูลลูกค้า...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : customers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center text-stone-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 mb-1">
-                        <RiUserFollowLine className="w-6 h-6" />
-                      </div>
-                      <p className="text-sm font-medium text-[#2B2F38]">
-                        {appliedSearch ? `ไม่พบลูกค้าที่ตรงกับ "${appliedSearch}"` : 'ยังไม่มีรายชื่อลูกค้าในร้านนี้'}
-                      </p>
-                      <p className="text-xs text-stone-500 max-w-xs">
-                        {appliedSearch ? 'ลองเปลี่ยนคำค้นหาใหม่อีกครั้ง' : 'กดปุ่ม "+ เพิ่มลูกค้า" ด้านบนเพื่อเพิ่มลูกค้าที่มีสิทธิ์เข้าถึงร้านนี้'}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                customers.map((customer, idx) => {
-                  const fullName =
-                    `${customer.firstname_th || customer.firstname || ''} ${customer.lastname_th || customer.lastname || ''}`.trim() ||
-                    '-';
-                  const dept = customer.department_th || customer.department || '-';
-
-                  return (
-                    <tr
-                      key={customer.username}
-                      className="hover:bg-stone-50/70 transition-colors"
-                    >
-                      {/* ลำดับ */}
-                      <td className="py-3 px-4 text-center text-stone-400 text-xs">
-                        {startIndex + idx}
-                      </td>
-
-                      {/* รหัสพนักงาน */}
-                      <td className="py-3 px-5 sm:px-6 whitespace-nowrap text-xs sm:text-sm">
-                        <span className="font-medium text-[#2B2F38]">{customer.username}</span>
-                      </td>
-
-                      {/* ชื่อ - นามสกุล */}
-                      <td className="py-3 px-4 text-[#2B2F38] font-medium text-xs sm:text-sm">
-                        <p className="font-medium text-[#2B2F38]">{fullName}</p>
-                        {customer.email && (
-                          <p className="text-xs text-stone-500 font-normal mt-0.5">{customer.email}</p>
-                        )}
-                      </td>
-
-                      {/* ฝ่าย / แผนก */}
-                      <td className="py-3 px-4 text-stone-600 text-xs sm:text-sm">
-                        <p>{dept}</p>
-                        {customer.section_th && (
-                          <p className="text-xs text-stone-400 font-normal mt-0.5">{customer.section_th}</p>
-                        )}
-                      </td>
-
-                      {/* ปุ่มจัดการ (ปุ่มลบ) */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDeleteModal(customer)}
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-md text-[#2B2F38] hover:text-[#D97706] hover:bg-amber-50/80 active:bg-amber-100 transition-colors cursor-pointer"
-                            title="ลบสิทธิ์ลูกค้า"
-                          >
-                            <RiDeleteBinLine className="w-4.5 h-4.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────────
-          ส่วนที่ 4: แถบ Pagination ด้านล่าง
-          ───────────────────────────────────────────────────────────── */}
-      <TablePagination
-        page={page}
-        totalCount={totalCount}
-        rowsPerPage={rowsPerPage}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
+      <DataTable
+        columns={[
+          {
+            key: 'index',
+            label: '#',
+            align: 'center',
+            width: 'w-12',
+            render: (_row, idx) => (
+              <span className="text-stone-400 text-xs">{startIndex + idx}</span>
+            ),
+          },
+          {
+            key: 'username',
+            label: 'รหัสพนักงาน',
+            width: 'w-40',
+            render: (customer) => (
+              <div className="flex items-center min-w-0 pr-2">
+                <span className="font-medium text-[#2B2F38] text-xs sm:text-sm truncate">
+                  {customer.username}
+                </span>
+              </div>
+            ),
+          },
+          {
+            key: 'fullname',
+            label: 'ชื่อ - นามสกุล',
+            render: (customer) => {
+              const fullName =
+                `${customer.firstname_th || customer.firstname || ''} ${customer.lastname_th || customer.lastname || ''}`.trim() ||
+                '-';
+              return (
+                <div className="flex flex-col justify-center min-w-0 pr-2">
+                  <p className="font-medium text-[#2B2F38] text-xs sm:text-sm truncate" title={fullName}>
+                    {fullName}
+                  </p>
+                  {customer.email ? (
+                    <p className="text-xs text-stone-500 font-normal truncate mt-0.5" title={customer.email}>
+                      {customer.email}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            },
+          },
+          {
+            key: 'department',
+            label: 'ฝ่าย / แผนก',
+            render: (customer) => {
+              const dept = customer.department_th || customer.department || '-';
+              return (
+                <div className="flex flex-col justify-center min-w-0 pr-2">
+                  <p className="text-xs sm:text-sm text-stone-600 truncate" title={dept}>
+                    {dept}
+                  </p>
+                  {customer.section_th ? (
+                    <p className="text-xs text-stone-400 font-normal truncate mt-0.5" title={customer.section_th}>
+                      {customer.section_th}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            },
+          },
+          {
+            key: 'actions',
+            label: 'จัดการ',
+            align: 'center',
+            width: 'w-24 sm:w-28',
+            render: (customer) => (
+              <div className="flex items-center justify-center">
+                <TableActionButton
+                  icon="delete"
+                  title="ลบสิทธิ์ลูกค้า"
+                  onClick={() => handleOpenDeleteModal(customer)}
+                />
+              </div>
+            ),
+          },
+        ]}
+        data={customers}
+        rowKey="username"
         loading={loading}
+        loadingText="กำลังโหลดข้อมูลลูกค้า..."
+        emptyState={{
+          icon: RiUserFollowLine,
+          title: appliedSearch ? `ไม่พบลูกค้าที่ตรงกับ "${appliedSearch}"` : 'ยังไม่มีรายชื่อลูกค้าในร้านนี้',
+          description: appliedSearch ? 'ลองเปลี่ยนคำค้นหาใหม่อีกครั้ง' : 'กดปุ่ม "+ เพิ่มลูกค้า" ด้านบนเพื่อเพิ่มลูกค้าที่มีสิทธิ์เข้าถึงร้านนี้',
+        }}
+        rowHeight="h-14"
+        maxHeight="calc(100vh - 320px)"
+        minWidth="min-w-[35rem]"
+        pagination={{
+          page,
+          totalCount,
+          rowsPerPage,
+          onPageChange: handlePageChange,
+          onRowsPerPageChange: handleRowsPerPageChange,
+          loading,
+        }}
       />
 
       {/* ─────────────────────────────────────────────────────────────

@@ -8,6 +8,9 @@ import { useStoreManagementStore } from '@/app/stores/useStoreManagementStore';
 import { useToastStore } from '@/app/stores/useToastStore';
 import { categoryService } from '@/app/services/categoryService';
 import TablePagination from '@/app/components/ui/TablePagination';
+import DataTable from '@/app/components/ui/DataTable';
+import ToggleSwitch from '@/app/components/ui/ToggleSwitch';
+import TableActionButton from '@/app/components/ui/TableActionButton';
 import OutlinedField from '@/app/components/ui/OutlinedField';
 import {
   RiAddLine,
@@ -391,158 +394,103 @@ export default function StoreCategoriesPage() {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          ส่วนที่ 3: ตารางรายการหมวดหมู่สินค้า (ล็อกความสูงตามหน้าจอ)
+          ส่วนที่ 3 & 4: ตารางรายการหมวดหมู่สินค้า (ล็อกความสูงตามหน้าจอ) + Pagination
           ───────────────────────────────────────────────────────────── */}
-      <div className="w-full bg-white">
-        <div
-          style={{ maxHeight: 'calc(100vh - 320px)' }}
-          className="overflow-x-auto overflow-y-auto"
-        >
-          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[35rem]">
-            <thead className="bg-white border-b border-stone-200 text-xs font-normal text-[#363636]/80 select-none sticky top-0 z-10 shadow-2xs">
-              <tr>
-                <th className="py-2.5 px-5 sm:px-6 font-normal text-[#363636] bg-white">
-                  หมวดหมู่
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-28 sm:w-32 bg-white whitespace-nowrap">
-                  ใช้งานอยู่
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-28 sm:w-36 bg-white whitespace-nowrap">
-                  สถานะ
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-24 sm:w-28 bg-white whitespace-nowrap">
-                  จัดการ
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 text-sm">
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="py-16 text-center text-stone-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <RiLoader4Line className="w-6 h-6 animate-spin text-stone-400" />
-                      <span className="text-xs">กำลังโหลดข้อมูลหมวดหมู่สินค้า...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : categories.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-16 text-center text-stone-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 mb-1">
-                        <RiGridLine className="w-6 h-6" />
-                      </div>
-                      <p className="text-sm font-medium text-[#2B2F38]">
-                        {appliedSearch ? `ไม่พบหมวดหมู่ที่ตรงกับ "${appliedSearch}"` : 'ยังไม่มีหมวดหมู่สินค้าในร้านนี้'}
-                      </p>
-                      <p className="text-xs text-stone-500 max-w-xs">
-                        {appliedSearch ? 'ลองเปลี่ยนคำค้นหาใหม่อีกครั้ง' : 'กดปุ่ม "+ เพิ่มหมวดหมู่" ด้านบนเพื่อสร้างหมวดหมู่แรก'}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                categories.map((cat) => {
-                  const isActive = cat.en === 'Y';
-                  const isToggling = togglingId === cat.category_id;
-                  const inUseCount = Number(cat.product_count) || 0;
-
-                  return (
-                    <tr
-                      key={cat.category_id}
-                      className="hover:bg-stone-50/70 transition-colors"
-                    >
-                      {/* ชื่อหมวดหมู่ */}
-                      <td className="py-3 px-5 sm:px-6 text-[#2B2F38] font-medium text-xs sm:text-sm">
-                        <p className="font-medium text-[#2B2F38]">{cat.category_name}</p>
-                        {cat.category_desc && (
-                          <p className="text-xs text-stone-500 font-normal mt-0.5">
-                            {cat.category_desc}
-                          </p>
-                        )}
-                      </td>
-
-                      {/* ใช้งานอยู่ (จำนวนสินค้าในหมวดหมู่นี้) */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            inUseCount > 0
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-stone-100 text-stone-600'
-                          }`}
-                        >
-                          {inUseCount} รายการ
-                        </span>
-                      </td>
-
-                      {/* สวิตช์สถานะเปิด/ปิด (Toggle Switch) */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleStatus(cat)}
-                            disabled={isToggling}
-                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-[#EB6E3E] ${
-                              isActive ? 'bg-[#2B2F38]' : 'bg-stone-300'
-                            }`}
-                            title={
-                              isActive
-                                ? 'คลิกเพื่อปิดใช้งาน'
-                                : 'คลิกเพื่อเปิดใช้งาน'
-                            }
-                          >
-                            <span
-                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                                isActive ? 'translate-x-4' : 'translate-x-0'
-                              }`}
-                            />
-                          </button>
-                        </div>
-                      </td>
-
-                      {/* คอลัมน์ Action: รวมปุ่มแก้ไข และปุ่มลบ (สไตล์สีระบบ และ hover เป็นสีส้ม) */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="inline-flex items-center justify-center gap-1">
-                          {/* ปุ่มแก้ไข */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(cat)}
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-md text-[#2B2F38] hover:text-[#D97706] hover:bg-amber-50/80 active:bg-amber-100 transition-colors cursor-pointer"
-                            title="แก้ไขหมวดหมู่"
-                          >
-                            <RiEdit2Line className="w-4.5 h-4.5" />
-                          </button>
-
-                          {/* ปุ่มลบ */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDeleteModal(cat)}
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-md text-[#2B2F38] hover:text-[#D97706] hover:bg-amber-50/80 active:bg-amber-100 transition-colors cursor-pointer"
-                            title="ลบหมวดหมู่"
-                          >
-                            <RiDeleteBinLine className="w-4.5 h-4.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────────
-          ส่วนที่ 4: แถบ Pagination ด้านล่าง
-          ───────────────────────────────────────────────────────────── */}
-      <TablePagination
-        page={page}
-        totalCount={totalCount}
-        rowsPerPage={rowsPerPage}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
+      <DataTable
+        columns={[
+          {
+            key: 'category_name',
+            label: 'หมวดหมู่',
+            render: (cat) => (
+              <div className="flex flex-col justify-center min-w-0 pr-2">
+                <p className="font-medium text-[#2B2F38] text-xs sm:text-sm truncate" title={cat.category_name}>
+                  {cat.category_name}
+                </p>
+                {cat.category_desc ? (
+                  <p className="text-xs text-stone-500 font-normal truncate mt-0.5" title={cat.category_desc}>
+                    {cat.category_desc}
+                  </p>
+                ) : null}
+              </div>
+            ),
+          },
+          {
+            key: 'product_count',
+            label: 'ใช้งานอยู่',
+            align: 'center',
+            width: 'w-28 sm:w-32',
+            render: (cat) => {
+              const inUseCount = Number(cat.product_count) || 0;
+              return (
+                <span
+                  className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    inUseCount > 0
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-stone-100 text-stone-600'
+                  }`}
+                >
+                  {inUseCount} รายการ
+                </span>
+              );
+            },
+          },
+          {
+            key: 'status',
+            label: 'สถานะ',
+            align: 'center',
+            width: 'w-28 sm:w-36',
+            render: (cat) => (
+              <div className="flex items-center justify-center">
+                <ToggleSwitch
+                  checked={cat.en === 'Y'}
+                  disabled={togglingId === cat.category_id}
+                  onChange={() => handleToggleStatus(cat)}
+                  title={cat.en === 'Y' ? 'คลิกเพื่อปิดใช้งาน' : 'คลิกเพื่อเปิดใช้งาน'}
+                />
+              </div>
+            ),
+          },
+          {
+            key: 'actions',
+            label: 'จัดการ',
+            align: 'center',
+            width: 'w-24 sm:w-28',
+            render: (cat) => (
+              <div className="flex items-center justify-center gap-1">
+                <TableActionButton
+                  icon="edit"
+                  title="แก้ไขหมวดหมู่"
+                  onClick={() => handleOpenEditModal(cat)}
+                />
+                <TableActionButton
+                  icon="delete"
+                  title="ลบหมวดหมู่"
+                  onClick={() => handleOpenDeleteModal(cat)}
+                />
+              </div>
+            ),
+          },
+        ]}
+        data={categories}
+        rowKey="category_id"
         loading={loading}
+        loadingText="กำลังโหลดข้อมูลหมวดหมู่สินค้า..."
+        emptyState={{
+          icon: RiGridLine,
+          title: appliedSearch ? `ไม่พบหมวดหมู่ที่ตรงกับ "${appliedSearch}"` : 'ยังไม่มีหมวดหมู่สินค้าในร้านนี้',
+          description: appliedSearch ? 'ลองเปลี่ยนคำค้นหาใหม่อีกครั้ง' : 'กดปุ่ม "+ เพิ่มหมวดหมู่" ด้านบนเพื่อสร้างหมวดหมู่แรก',
+        }}
+        rowHeight="h-14"
+        maxHeight="calc(100vh - 320px)"
+        minWidth="min-w-[35rem]"
+        pagination={{
+          page,
+          totalCount,
+          rowsPerPage,
+          onPageChange: handlePageChange,
+          onRowsPerPageChange: handleRowsPerPageChange,
+          loading,
+        }}
       />
 
       {/* ─────────────────────────────────────────────────────────────

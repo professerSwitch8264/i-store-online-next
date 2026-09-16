@@ -47,6 +47,7 @@ export async function GET(request) {
         p.unit_id,
         p.location_id,
         p.status,
+        p.update_date,
         loc.location_name,
         p.order_limit,
         p.batch_size,
@@ -112,7 +113,7 @@ export async function GET(request) {
     req.input('limit', sql.Int, limit);
 
     query += ` 
-      ORDER BY p.product_name ASC, p.product_id ASC
+      ORDER BY p.update_date DESC, p.product_name ASC, p.product_id DESC
       OFFSET @skip ROWS FETCH NEXT @limit ROWS ONLY
     `;
 
@@ -568,7 +569,7 @@ export async function DELETE(request) {
     await pool
       .request()
       .input('product_id', sql.UniqueIdentifier, productId)
-      .query(`DELETE FROM cart WHERE product_id = @product_id`);
+      .query(`DELETE FROM carts WHERE product_id = @product_id`);
 
     // ทำการ Soft Delete ด้วยการปรับ status = 'D' (Deleted)
     await pool

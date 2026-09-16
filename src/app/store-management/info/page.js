@@ -23,6 +23,8 @@ import {
   RiArrowDownSLine,
   RiCameraLine,
   RiLoader4Line,
+  RiImageAddFill,
+  RiDeleteBin7Line,
 } from 'react-icons/ri';
 import { SearchableSelect } from '@/app/components/ui/SearchableSelect';
 
@@ -107,6 +109,16 @@ export default function StoreInfoPage() {
     setIsModalOpen(false);
     setSelectedFile(null);
     setPreviewUrl(null);
+  };
+
+  // ลบรูปภาพร้านค้า
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setFormData((prev) => ({ ...prev, store_image: '' }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   // ป้องกันการพิมพ์เครื่องหมายที่ไม่ใช่ตัวเลข เช่น -, +, e, E, .
@@ -413,8 +425,8 @@ export default function StoreInfoPage() {
           Modal: แก้ไขข้อมูลร้านค้า (สไตล์ Outlined Input + Floating Label เหมือนหน้าอื่นๆ)
           ───────────────────────────────────────────────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-fadeIn">
-          <div className="bg-white rounded-xs shadow-2xl border border-stone-200 w-full max-w-lg max-h-[92vh] overflow-y-auto font-sans animate-scale p-6 sm:p-7">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-fadeIn font-sans">
+          <div className="bg-white rounded-xs shadow-2xl border border-stone-200 w-full max-w-3xl max-h-[92vh] overflow-y-auto font-sans animate-scale p-6 sm:p-7">
             {/* Input file ซ่อนไว้สำหรับเลือกรูปภาพ */}
             <input
               type="file"
@@ -424,163 +436,198 @@ export default function StoreInfoPage() {
               onChange={handleFileChange}
             />
 
-            {/* หัวข้อ Modal */}
-            <h3 className="text-lg sm:text-xl font-bold text-[#2B2F38] mb-6">
-              แก้ไขข้อมูลร้านค้า
-            </h3>
+            {/* Header: หัวข้อ Modal + ปุ่มปิด */}
+            <div className="flex items-center justify-between mb-5 border-b border-stone-100 pb-3">
+              <h3 className="text-lg sm:text-xl font-bold text-[#2B2F38]">
+                แก้ไขข้อมูลร้านค้า
+              </h3>
+              <button
+                type="button"
+                onClick={handleCloseEditModal}
+                disabled={isSaving}
+                className="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
+              >
+                <RiCloseLine className="w-5 h-5" />
+              </button>
+            </div>
 
             <form onSubmit={handleSave}>
-              <div className="space-y-5">
-                {/* 1. ส่วนรูปภาพร้านค้า */}
-                <div className="flex items-center gap-4 p-3 bg-stone-50/80 rounded-md border border-stone-200">
-                  <div className="w-16 h-16 rounded-md bg-white border border-stone-200 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+              {/* Content: ซ้าย (กล่องอัปโหลดรูปภาพเส้นประ) | ขวา (แบบฟอร์มข้อมูลร้านค้า) */}
+              <div className="flex flex-col md:flex-row gap-5 items-stretch">
+                {/* ซ้าย: กล่องอัปโหลดรูปภาพร้านค้าในกรอบเส้นประ สี่เหลี่ยมจัตุรัสขอบมน (ตามแบบภาพ) */}
+                <div className="w-full md:w-[240px] lg:w-[260px] flex flex-col items-center shrink-0">
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`group relative w-full h-[240px] md:h-full min-h-[240px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-5 transition-all cursor-pointer overflow-hidden ${
+                      previewUrl || (formData.store_image && !modalImgError)
+                        ? 'border-stone-300 bg-white hover:border-[#2B2F38]'
+                        : 'border-[#D4CFC9] bg-white hover:border-[#2B2F38] hover:bg-stone-50/50'
+                    }`}
+                    title="คลิกเพื่อเลือกรูปภาพร้านค้า"
+                  >
                     {previewUrl || (formData.store_image && !modalImgError) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={previewUrl || getStoreLogoUrl(formData.store_image)}
-                        alt={formData.store_name}
-                        className="w-full h-full object-contain"
-                        onError={() => setModalImgError(true)}
-                      />
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={previewUrl || getStoreLogoUrl(formData.store_image)}
+                          alt={formData.store_name}
+                          className="max-w-full max-h-[200px] object-contain rounded-xl"
+                          onError={() => setModalImgError(true)}
+                        />
+                        {/* Overlay เปลี่ยน / ลบรูป */}
+                        <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2.5 text-white transition-opacity p-4">
+                          <span className="text-xs font-medium bg-black/60 px-3 py-1.5 rounded-lg shadow-sm">
+                            คลิกเพื่อเปลี่ยนรูป
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveImage();
+                            }}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm cursor-pointer"
+                          >
+                            <RiDeleteBin7Line className="w-4 h-4" />
+                            <span>ลบรูปภาพ</span>
+                          </button>
+                        </div>
+                      </>
                     ) : (
-                      <FaShop className="w-7 h-7 text-stone-300" />
+                      <div className="flex flex-col items-center justify-center text-center select-none py-4">
+                        <RiImageAddFill className="w-14 h-14 sm:w-16 sm:h-16 text-[#9E9890] group-hover:text-[#6E6862] transition-colors" />
+                        <p className="text-sm sm:text-base font-semibold text-[#5A5550] group-hover:text-[#2B2F38] mt-3 transition-colors">
+                          รูปภาพร้านค้า
+                        </p>
+                        <p className="text-xs text-[#9E9890] mt-1 font-normal">
+                          คลิกเพื่ออัปโหลด
+                        </p>
+                      </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm font-medium text-[#2B2F38]">รูปภาพร้านค้า</p>
-                    <p className="text-[11px] text-stone-500 mt-0.5">
-                      รองรับไฟล์รูปภาพ PNG, JPG, JPEG, WEBP
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-stone-300 hover:border-[#2B2F38] text-[#2B2F38] rounded text-xs font-normal transition-colors cursor-pointer shadow-2xs"
+                </div>
+
+                {/* ขวา: ช่องกรอกข้อมูล */}
+                <div className="flex-1 flex flex-col justify-between gap-4">
+                  {/* 1. ช่องชื่อร้านค้า */}
+                  <div>
+                    <div className="relative">
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
+                        <RiStore2Line className="w-5 h-5 text-stone-600" />
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        maxLength={64}
+                        placeholder=""
+                        value={formData.store_name}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, store_name: e.target.value }))
+                        }
+                        className="w-full h-12 pl-10 pr-4 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal"
+                      />
+                      <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
+                        ชื่อร้านค้า <span className="text-stone-500">*</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 2. ช่องรายละเอียดร้านค้า */}
+                  <div>
+                    <div className="relative">
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
+                        <RiInformationLine className="w-5 h-5 text-stone-600" />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder=""
+                        value={formData.store_desc}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, store_desc: e.target.value }))
+                        }
+                        className="w-full h-12 pl-10 pr-4 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal"
+                      />
+                      <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
+                        รายละเอียดร้านค้า
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 3. ช่องการเข้าถึงร้านค้า */}
+                  <div>
+                    <SearchableSelect
+                      label="การเข้าถึงร้านค้า *"
+                      value={formData.store_access}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, store_access: e.target.value }))
+                      }
+                      prefix={<RiGlobalLine className="w-5 h-5 text-stone-600" />}
+                      height="h-12"
+                      searchable={false}
                     >
-                      <RiCameraLine className="w-3.5 h-3.5" />
-                      <span>{selectedFile || formData.store_image ? 'เปลี่ยนรูปภาพ' : 'อัปโหลดรูปภาพ'}</span>
-                    </button>
+                      <option value="public">สาธารณะ (Public) - ทุกคนสั่งได้</option>
+                      <option value="private">เฉพาะกลุ่ม (Private) - จำกัดสิทธิ์</option>
+                    </SearchableSelect>
                   </div>
-                </div>
 
-                {/* 2. ช่องชื่อร้านค้า */}
-                <div>
-                  <div className="relative">
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                      <RiStore2Line className="w-5 h-5 text-stone-600" />
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      autoFocus
-                      maxLength={64}
-                      placeholder=""
-                      value={formData.store_name}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, store_name: e.target.value }))
-                      }
-                      className="w-full h-12 pl-10 pr-4 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal"
-                    />
-                    <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
-                      ชื่อร้านค้า <span className="text-stone-500">*</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* 3. ช่องรายละเอียดร้านค้า */}
-                <div>
-                  <div className="relative">
-                    <div className="absolute left-3.5 top-3.5 text-stone-500 pointer-events-none flex items-center justify-center">
-                      <RiInformationLine className="w-5 h-5 text-stone-600" />
-                    </div>
-                    <textarea
-                      rows={3}
-                      placeholder=""
-                      value={formData.store_desc}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, store_desc: e.target.value }))
-                      }
-                      className="w-full pl-10 pr-4 pt-3 pb-3 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal resize-none"
-                    />
-                    <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
-                      รายละเอียดร้านค้า
-                    </label>
-                  </div>
-                </div>
-
-                {/* 4. ช่องการเข้าถึงร้านค้า */}
-                <div>
-                  <SearchableSelect
-                    label="การเข้าถึงร้านค้า *"
-                    value={formData.store_access}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, store_access: e.target.value }))
-                    }
-                    prefix={<RiGlobalLine className="w-5 h-5 text-stone-600" />}
-                    height="h-12"
-                    searchable={false}
-                  >
-                    <option value="public">สาธารณะ (Public) - ทุกคนสั่งได้</option>
-                    <option value="private">เฉพาะกลุ่ม (Private) - จำกัดสิทธิ์</option>
-                  </SearchableSelect>
-                </div>
-
-                {/* 5. แถววันที่เติมของ & ลิมิตวันที่รายการตกค้าง (2 คอลัมน์) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* วันที่เติมของ */}
-                  <div>
-                    <div className="relative">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                        <RiCalendarEventLine className="w-5 h-5 text-stone-600" />
+                  {/* 4. แถววันที่เติมของ & ลิมิตวันที่รายการตกค้าง (2 คอลัมน์) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* วันที่เติมของ */}
+                    <div>
+                      <div className="relative">
+                        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
+                          <RiCalendarEventLine className="w-5 h-5 text-stone-600" />
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          max="31"
+                          placeholder="0"
+                          value={formData.restock_day}
+                          onKeyDown={handleNumberKeyDown}
+                          onChange={handleRestockDayChange}
+                          onBlur={handleRestockDayBlur}
+                          className="w-full h-12 pl-10 pr-16 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 pointer-events-none">
+                          ของเดือน
+                        </span>
+                        <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
+                          วันที่เติมของ
+                        </label>
                       </div>
-                      <input
-                        type="number"
-                        min="0"
-                        max="31"
-                        placeholder="0"
-                        value={formData.restock_day}
-                        onKeyDown={handleNumberKeyDown}
-                        onChange={handleRestockDayChange}
-                        onBlur={handleRestockDayBlur}
-                        className="w-full h-12 pl-10 pr-16 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 pointer-events-none">
-                        ของเดือน
-                      </span>
-                      <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
-                        วันที่เติมของ
-                      </label>
                     </div>
-                  </div>
 
-                  {/* ลิมิตวันที่รายการตกค้าง */}
-                  <div>
-                    <div className="relative">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
-                        <RiTimerLine className="w-5 h-5 text-stone-600" />
+                    {/* ลิมิตวันที่รายการตกค้าง */}
+                    <div>
+                      <div className="relative">
+                        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none flex items-center justify-center">
+                          <RiTimerLine className="w-5 h-5 text-stone-600" />
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={formData.limit_order_day}
+                          onKeyDown={handleNumberKeyDown}
+                          onChange={handleLimitOrderDayChange}
+                          onBlur={handleLimitOrderDayBlur}
+                          className="w-full h-12 pl-10 pr-12 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 pointer-events-none">
+                          วัน
+                        </span>
+                        <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
+                          ลิมิตวันที่รายการตกค้าง
+                        </label>
                       </div>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        value={formData.limit_order_day}
-                        onKeyDown={handleNumberKeyDown}
-                        onChange={handleLimitOrderDayChange}
-                        onBlur={handleLimitOrderDayBlur}
-                        className="w-full h-12 pl-10 pr-12 bg-white border border-stone-300 rounded-md text-sm text-[#2B2F38] placeholder-stone-400 focus:border-[#2B2F38] focus:ring-1 focus:ring-[#2B2F38] focus:outline-none transition-colors font-normal"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 pointer-events-none">
-                        วัน
-                      </span>
-                      <label className="absolute -top-2.5 left-3 bg-white px-1.5 text-xs text-stone-600 font-normal pointer-events-none">
-                        ลิมิตวันที่รายการตกค้าง
-                      </label>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* ปุ่มควบคุมด้านล่างขวา (ปุ่มบันทึก, ปุ่มยกเลิกสีแดง) */}
-              <div className="flex items-center justify-end gap-3 mt-7">
+              <div className="flex items-center justify-end gap-3 mt-7 border-t border-stone-100 pt-4">
                 <button
                   type="submit"
                   disabled={!formData.store_name.trim() || isSaving}

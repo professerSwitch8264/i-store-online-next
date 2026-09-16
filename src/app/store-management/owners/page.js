@@ -9,6 +9,8 @@ import { useToastStore } from '@/app/stores/useToastStore';
 import { ownerService } from '@/app/services/ownerService';
 import { userService } from '@/app/services/userService';
 import TablePagination from '@/app/components/ui/TablePagination';
+import DataTable from '@/app/components/ui/DataTable';
+import TableActionButton from '@/app/components/ui/TableActionButton';
 import OutlinedField from '@/app/components/ui/OutlinedField';
 import {
   RiAddLine,
@@ -408,146 +410,119 @@ export default function StoreOwnersPage() {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          ส่วนที่ 3: ตารางรายการผู้ดูแลร้านค้า (ล็อกความสูงตามหน้าจอ)
+          ส่วนที่ 3 & 4: ตารางรายการผู้ดูแลร้านค้า (ล็อกความสูงตามหน้าจอ) + Pagination
           ───────────────────────────────────────────────────────────── */}
-      <div className="w-full bg-white">
-        <div
-          style={{ maxHeight: 'calc(100vh - 320px)' }}
-          className="overflow-x-auto overflow-y-auto"
-        >
-          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[35rem]">
-            <thead className="bg-white border-b border-stone-200 text-xs font-normal text-[#363636]/80 select-none sticky top-0 z-10 shadow-2xs">
-              <tr>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-12 bg-white">
-                  #
-                </th>
-                <th className="py-2.5 px-5 sm:px-6 font-normal text-[#363636] bg-white w-40 whitespace-nowrap">
-                  รหัสพนักงาน
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] bg-white">
-                  ชื่อ - นามสกุล
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] bg-white">
-                  ฝ่าย / แผนก
-                </th>
-                <th className="py-2.5 px-4 font-normal text-[#363636] text-center w-24 sm:w-28 bg-white whitespace-nowrap">
-                  จัดการ
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 text-sm">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center text-stone-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <RiLoader4Line className="w-6 h-6 animate-spin text-stone-400" />
-                      <span className="text-xs">กำลังโหลดข้อมูลผู้ดูแลร้านค้า...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : owners.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center text-stone-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 mb-1">
-                        <RiTeamLine className="w-6 h-6" />
-                      </div>
-                      <p className="text-sm font-medium text-[#2B2F38]">
-                        {appliedSearch ? `ไม่พบผู้ดูแลที่ตรงกับ "${appliedSearch}"` : 'ยังไม่มีผู้ดูแลในร้านนี้'}
-                      </p>
-                      <p className="text-xs text-stone-500 max-w-xs">
-                        {appliedSearch ? 'ลองเปลี่ยนคำค้นหาใหม่อีกครั้ง' : 'กดปุ่ม "+ เพิ่มผู้ดูแล" ด้านบนเพื่อเพิ่มผู้ดูแลร้าน'}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                owners.map((owner, idx) => {
-                  const isSelf = owner.username.toUpperCase() === currentUsername;
-                  const fullName =
-                    `${owner.firstname_th || owner.firstname || ''} ${owner.lastname_th || owner.lastname || ''}`.trim() ||
-                    '-';
-                  const dept = owner.department_th || owner.department || '-';
-
-                  return (
-                    <tr
-                      key={owner.username}
-                      className="hover:bg-stone-50/70 transition-colors"
-                    >
-                      {/* ลำดับ */}
-                      <td className="py-3 px-4 text-center text-stone-400 text-xs">
-                        {startIndex + idx}
-                      </td>
-
-                      {/* รหัสพนักงาน */}
-                      <td className="py-3 px-5 sm:px-6 whitespace-nowrap text-xs sm:text-sm">
-                        <span className="font-medium text-[#2B2F38]">{owner.username}</span>
-                        {isSelf && (
-                          <span className="text-stone-400 font-normal ml-1.5">
-                            (คุณ)
-                          </span>
-                        )}
-                      </td>
-
-                      {/* ชื่อ - นามสกุล */}
-                      <td className="py-3 px-4 text-[#2B2F38] font-medium text-xs sm:text-sm">
-                        <p className="font-medium text-[#2B2F38]">{fullName}</p>
-                        {owner.email && (
-                          <p className="text-xs text-stone-500 font-normal mt-0.5">{owner.email}</p>
-                        )}
-                      </td>
-
-                      {/* ฝ่าย / แผนก */}
-                      <td className="py-3 px-4 text-stone-600 text-xs sm:text-sm">
-                        <p>{dept}</p>
-                        {owner.section_th && (
-                          <p className="text-xs text-stone-400 font-normal mt-0.5">{owner.section_th}</p>
-                        )}
-                      </td>
-
-                      {/* ปุ่มจัดการ (ปุ่มลบ พร้อมกฎห้ามลบตนเอง) */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center">
-                          {isSelf ? (
-                            <button
-                              type="button"
-                              disabled
-                              className="w-8 h-8 inline-flex items-center justify-center rounded-md text-stone-300 cursor-not-allowed"
-                              title="ไม่สามารถลบสิทธิ์ผู้ดูแลของตนเองได้"
-                            >
-                              <RiDeleteBinLine className="w-4.5 h-4.5" />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDeleteModal(owner)}
-                              className="w-8 h-8 inline-flex items-center justify-center rounded-md text-[#2B2F38] hover:text-[#D97706] hover:bg-amber-50/80 active:bg-amber-100 transition-colors cursor-pointer"
-                              title="ลบผู้ดูแลร้านค้า"
-                            >
-                              <RiDeleteBinLine className="w-4.5 h-4.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────────
-          ส่วนที่ 4: แถบ Pagination ด้านล่าง
-          ───────────────────────────────────────────────────────────── */}
-      <TablePagination
-        page={page}
-        totalCount={totalCount}
-        rowsPerPage={rowsPerPage}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
+      <DataTable
+        columns={[
+          {
+            key: 'index',
+            label: '#',
+            align: 'center',
+            width: 'w-12',
+            render: (_row, idx) => (
+              <span className="text-stone-400 text-xs">{startIndex + idx}</span>
+            ),
+          },
+          {
+            key: 'username',
+            label: 'รหัสพนักงาน',
+            width: 'w-40',
+            render: (owner) => {
+              const isSelf = owner.username.toUpperCase() === currentUsername;
+              return (
+                <div className="flex items-center min-w-0 pr-2">
+                  <span className="font-medium text-[#2B2F38] text-xs sm:text-sm truncate">
+                    {owner.username}
+                  </span>
+                  {isSelf && (
+                    <span className="text-stone-400 font-normal ml-1.5 shrink-0 text-xs">
+                      (คุณ)
+                    </span>
+                  )}
+                </div>
+              );
+            },
+          },
+          {
+            key: 'fullname',
+            label: 'ชื่อ - นามสกุล',
+            render: (owner) => {
+              const fullName =
+                `${owner.firstname_th || owner.firstname || ''} ${owner.lastname_th || owner.lastname || ''}`.trim() ||
+                '-';
+              return (
+                <div className="flex flex-col justify-center min-w-0 pr-2">
+                  <p className="font-medium text-[#2B2F38] text-xs sm:text-sm truncate" title={fullName}>
+                    {fullName}
+                  </p>
+                  {owner.email ? (
+                    <p className="text-xs text-stone-500 font-normal truncate mt-0.5" title={owner.email}>
+                      {owner.email}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            },
+          },
+          {
+            key: 'department',
+            label: 'ฝ่าย / แผนก',
+            render: (owner) => {
+              const dept = owner.department_th || owner.department || '-';
+              return (
+                <div className="flex flex-col justify-center min-w-0 pr-2">
+                  <p className="text-xs sm:text-sm text-stone-600 truncate" title={dept}>
+                    {dept}
+                  </p>
+                  {owner.section_th ? (
+                    <p className="text-xs text-stone-400 font-normal truncate mt-0.5" title={owner.section_th}>
+                      {owner.section_th}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            },
+          },
+          {
+            key: 'actions',
+            label: 'จัดการ',
+            align: 'center',
+            width: 'w-24 sm:w-28',
+            render: (owner) => {
+              const isSelf = owner.username.toUpperCase() === currentUsername;
+              return (
+                <div className="flex items-center justify-center">
+                  <TableActionButton
+                    icon="delete"
+                    title={isSelf ? 'ไม่สามารถลบสิทธิ์ผู้ดูแลของตนเองได้' : 'ลบผู้ดูแลร้านค้า'}
+                    disabled={isSelf}
+                    onClick={() => handleOpenDeleteModal(owner)}
+                  />
+                </div>
+              );
+            },
+          },
+        ]}
+        data={owners}
+        rowKey="username"
         loading={loading}
+        loadingText="กำลังโหลดข้อมูลผู้ดูแลร้านค้า..."
+        emptyState={{
+          icon: RiTeamLine,
+          title: appliedSearch ? `ไม่พบผู้ดูแลที่ตรงกับ "${appliedSearch}"` : 'ยังไม่มีผู้ดูแลในร้านนี้',
+          description: appliedSearch ? 'ลองเปลี่ยนคำค้นหาใหม่อีกครั้ง' : 'กดปุ่ม "+ เพิ่มผู้ดูแล" ด้านบนเพื่อเพิ่มผู้ดูแลร้าน',
+        }}
+        rowHeight="h-14"
+        maxHeight="calc(100vh - 320px)"
+        minWidth="min-w-[35rem]"
+        pagination={{
+          page,
+          totalCount,
+          rowsPerPage,
+          onPageChange: handlePageChange,
+          onRowsPerPageChange: handleRowsPerPageChange,
+          loading,
+        }}
       />
 
       {/* ─────────────────────────────────────────────────────────────
